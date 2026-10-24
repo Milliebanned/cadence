@@ -70,6 +70,17 @@ test("a send that errors blocks a second payment until a human resolves it", asy
   assert.equal(wallet.sent.length, 1);
 });
 
+test("a failed preflight (no funds, sync error) does not mark the cycle pending", async () => {
+  const { agent, wallet, m } = setup();
+  wallet.preflightError = "refusing: shielded spendable 0 zat";
+  const [first] = await agent.tick(T0 + 10, zero);
+  assert.equal(first!.action, "failed");
+  assert.equal(agent.stateOf(m.id).pending, null);
+  wallet.preflightError = null;
+  const [second] = await agent.tick(T0 + 20, zero);
+  assert.equal(second!.action, "paid");
+});
+
 test("the chosen send time survives a restart", async () => {
   const { dir, agent, wallet, m } = setup();
   const [a] = await agent.tick(T0 + 5, () => 7200);

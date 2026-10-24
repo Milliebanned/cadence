@@ -36,6 +36,9 @@ export class Agent {
     this.data = existsSync(opts.storePath)
       ? (JSON.parse(readFileSync(opts.storePath, "utf8")) as StoreFile)
       : { mandates: {} };
+    if (typeof this.data?.mandates !== "object" || this.data.mandates === null) {
+      throw new Error(`${opts.storePath} is not an agent state file`);
+    }
   }
 
   private save(): void {
@@ -135,6 +138,16 @@ export class Agent {
     if (!decision.ok) {
       this.audit.append("refused", { mandateId, cycle, reasons: decision.reasons }, now);
       return { mandateId, action: "refused", cycle, reasons: decision.reasons };
+    }
+
+    if (this.wallet.preflight) {
+      try {
+        await this.wallet.preflight(invoice.address, invoice.amountZat);
+      } catch (e) {
+        const error = e instanceof Error ? e.message : String(e);
+        this.audit.append("preflight-failed", { mandateId, cycle, error }, now);
+        return { mandateId, action: "failed", cycle, error };
+      }
     }
 
     // Write-ahead: record the intent first, so a crash mid-send can never cause a second payment.

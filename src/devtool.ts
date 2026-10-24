@@ -73,7 +73,7 @@ export class DevtoolWallet implements WalletAdapter {
   private readonly o: Required<DevtoolOptions>;
 
   constructor(opts: DevtoolOptions) {
-    this.o = { server: "zecrocks", connection: "direct", ...opts };
+    this.o = { ...opts, server: opts.server ?? "zecrocks", connection: opts.connection ?? "direct" };
   }
 
   private async exec(args: string[], timeoutMs = 600_000): Promise<string> {
@@ -108,7 +108,8 @@ export class DevtoolWallet implements WalletAdapter {
     return addr;
   }
 
-  async sendShielded(address: string, amountZat: number, memo: string): Promise<{ txid: string }> {
+  /** Checks that cannot move funds. Runs before the agent records a send as pending. */
+  async preflight(address: string, amountZat: number): Promise<void> {
     const info = await this.inspectAddress(address);
     if (info.receivers.includes("transparent") || !info.receivers.some((r) => r !== "transparent")) {
       throw new Error("refusing: recipient is not a shielded-only address");
@@ -122,6 +123,13 @@ export class DevtoolWallet implements WalletAdapter {
         `refusing: shielded spendable ${bal.shieldedSpendableZat} zat is below ${amountZat + MIN_FEE_ZAT} zat` +
           (bal.transparentSpendableZat > 0 ? "; transparent funds are not used automatically" : ""),
       );
+    }
+  }
+
+  async sendShielded(address: string, amountZat: number, memo: string): Promise<{ txid: string }> {
+    const info = await this.inspectAddress(address);
+    if (info.receivers.includes("transparent") || !info.receivers.some((r) => r !== "transparent")) {
+      throw new Error("refusing: recipient is not a shielded-only address");
     }
     const out = await this.exec([
       "wallet",

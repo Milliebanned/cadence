@@ -4,6 +4,8 @@ import type { AddressInfo } from "./types.ts";
  *  wallet; the agent never sees keys, it only asks for a shielded send. */
 export interface WalletAdapter {
   inspectAddress(address: string): Promise<AddressInfo>;
+  /** Optional checks that cannot move funds (sync, balance). A failure here means nothing was sent. */
+  preflight?(address: string, amountZat: number): Promise<void>;
   /** Must send shielded-to-shielded only and fail rather than fall back to transparent. */
   sendShielded(address: string, amountZat: number, memo: string): Promise<{ txid: string }>;
 }
@@ -19,6 +21,7 @@ export interface SentRecord {
 export class MockWallet implements WalletAdapter {
   readonly sent: SentRecord[] = [];
   failNext = false;
+  preflightError: string | null = null;
   private readonly infoFor: (address: string) => AddressInfo;
 
   constructor(infoFor?: (address: string) => AddressInfo) {
@@ -32,6 +35,10 @@ export class MockWallet implements WalletAdapter {
 
   async inspectAddress(address: string): Promise<AddressInfo> {
     return this.infoFor(address);
+  }
+
+  async preflight(): Promise<void> {
+    if (this.preflightError) throw new Error(this.preflightError);
   }
 
   async sendShielded(address: string, amountZat: number, memo: string): Promise<{ txid: string }> {
