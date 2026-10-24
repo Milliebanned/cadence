@@ -51,6 +51,8 @@ export function localInvoice(m: Mandate, cycle: number): Invoice {
 
 export function networkOfAddress(address: string): Network | null {
   if (/^(u1|zs1|t1|t3)/.test(address)) return "main";
-  if (/^(utest1|ztestsapling1|tm)/.test(address)) return "test";
+  if (/^(utest1|ztestsapling1|tm|t2)/.test(address)) return "test";
+  // Regtest shares the testnet transparent prefixes; only shielded encodings are told apart.
+  if (/^(uregtest1|zregtestsapling1)/.test(address)) return "regtest";
   return null;
 }

@@ -1,4 +1,4 @@
-export type Network = "main" | "test";
+export type Network = "main" | "test" | "regtest";
 
 /** Who gets paid.
  *  - "address": any shielded address the payee already has. Needs nothing from the payee.

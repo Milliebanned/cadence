@@ -18,7 +18,8 @@ export const MIN_FEE_ZAT = 10_000;
 
 export function parseInspect(text: string): AddressInfo {
   const net = /Network:\s*(\w+)/.exec(text)?.[1];
-  const network: Network | null = net === "testnet" ? "test" : net === "mainnet" ? "main" : null;
+  const network: Network | null =
+    net === "testnet" ? "test" : net === "mainnet" ? "main" : net === "regtest" ? "regtest" : null;
   if (!network) throw new Error("not a Zcash address");
   const kind = /Kind:\s*(.+)/.exec(text)?.[1]?.trim() ?? "";
   const receivers = new Set<AddressInfo["receivers"][number]>();
@@ -95,6 +96,13 @@ export class DevtoolWallet implements WalletAdapter {
 
   async sync(): Promise<void> {
     await this.exec(["wallet", "-w", this.o.walletDir, "sync", ...this.net()]);
+  }
+
+  /** Downloads full transactions so memos become readable. Compact blocks carry no memos, and
+   *  fetching by txid tells the light-wallet server which transactions this wallet cares about,
+   *  so callers should only do this over Tor or against their own server. */
+  async enhance(): Promise<void> {
+    await this.exec(["wallet", "-w", this.o.walletDir, "enhance", ...this.net()]);
   }
 
   async balance(): Promise<Balance> {

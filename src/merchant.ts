@@ -69,6 +69,9 @@ export class Merchant {
     this.data = existsSync(opts.storePath)
       ? (JSON.parse(readFileSync(opts.storePath, "utf8")) as StoreFile)
       : { subscriptions: {}, seenTxOutputs: [] };
+    if (typeof this.data?.subscriptions !== "object" || this.data.subscriptions === null || !Array.isArray(this.data.seenTxOutputs)) {
+      throw new Error(`${opts.storePath} is not a merchant state file`);
+    }
   }
 
   private save(): void {

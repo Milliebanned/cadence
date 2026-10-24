@@ -38,6 +38,9 @@ interface MerchantConfig {
   plans: Plan[];
   webhookUrl?: string;
   syncEverySec?: number;
+  /** Fetch full transactions to read memos. Off by default: payments match by address alone,
+   *  and fetching by txid reveals interest in those transactions to the light-wallet server. */
+  fetchMemos?: boolean;
 }
 
 function loadJson<T>(path: string): T {
@@ -55,11 +58,18 @@ function zecToZat(s: string): number {
   return Number(whole) * 1e8 + Number(frac.padEnd(8, "0"));
 }
 
+function duration(sec: number): string {
+  if (sec % DAY === 0) return `${sec / DAY} day${sec === DAY ? "" : "s"}`;
+  if (sec % 3600 === 0) return `${sec / 3600} hour${sec === 3600 ? "" : "s"}`;
+  if (sec % 60 === 0) return `${sec / 60} minute${sec === 60 ? "" : "s"}`;
+  return `${sec} seconds`;
+}
+
 function usage(): never {
   console.log(`cadence: private autopay subscriptions for shielded Zcash
 
   cadence agent subscribe --config agent.json --offer <merchant-url>/offer/<plan> [--cycles N] [--jitter-min M]
-  cadence agent subscribe --config agent.json --address <shielded address> --amount <ZEC> --every-days D --cycles N [--network test|main]
+  cadence agent subscribe --config agent.json --address <shielded address> --amount <ZEC> --every-days D --cycles N [--network test|main|regtest]
   cadence agent run       --config agent.json [--once] [--every-sec S]
   cadence agent status    --config agent.json
   cadence agent revoke    --config agent.json --mandate <id>
@@ -153,13 +163,13 @@ async function agentCmd(sub: string, args: string[]): Promise<void> {
       if (reg.status !== 201) throw new Error(`merchant refused the mandate: ${await reg.text()}`);
       merchants[mandate.id] = base;
       writeFileSync(merchantsPath, JSON.stringify(merchants, null, 2));
-      console.log(`Subscribed to "${offer.plan.name}": ${offer.plan.amountZat / 1e8} ZEC every ${offer.plan.periodSec / DAY} days, ${mandate.maxCycles} cycles at most.`);
+      console.log(`Subscribed to "${offer.plan.name}": ${offer.plan.amountZat / 1e8} ZEC every ${duration(offer.plan.periodSec)}, ${mandate.maxCycles} cycles at most.`);
     } else if (values.address && values.amount && values["every-days"] && values.cycles) {
       const periodSec = Math.round(Number(values["every-days"]) * DAY);
       const cycles = Number(values.cycles);
       const graceSec = Math.round(Number(values["grace-days"]) * DAY);
       mandate = createMandate({
-        network: values.network === "main" ? "main" : "test",
+        network: values.network === "main" ? "main" : values.network === "regtest" ? "regtest" : "test",
         payee: { mode: "address", address: values.address },
         planId: "direct",
         amountZat: zecToZat(values.amount),
@@ -170,7 +180,7 @@ async function agentCmd(sub: string, args: string[]): Promise<void> {
         graceSec,
         jitterSec: Math.min(jitterSec, graceSec, periodSec - 1),
       });
-      console.log(`Autopay set: ${values.amount} ZEC every ${values["every-days"]} days, ${cycles} times, to one shielded address.`);
+      console.log(`Autopay set: ${values.amount} ZEC every ${duration(periodSec)}, ${cycles} times, to one shielded address.`);
     } else {
       usage();
     }
@@ -267,7 +277,7 @@ async function merchantCmd(sub: string, args: string[]): Promise<void> {
     network: cfg.network,
     keys,
     plans: cfg.plans,
-    storePath: join(dataDir, "merchant.json"),
+    storePath: join(dataDir, "merchant-state.json"),
     newAddress: () => wallet.newAddress(),
     onEvent: (e) => {
       console.log(`${new Date(e.at * 1000).toISOString()} ${e.type} ${e.mandateId.slice(0, 12)}${e.cycle ? ` cycle ${e.cycle}` : ""}`);
@@ -281,6 +291,7 @@ async function merchantCmd(sub: string, args: string[]): Promise<void> {
 
   const reconcile = async () => {
     await wallet.sync();
+    if (cfg.fetchMemos) await wallet.enhance();
     merchant.reconcile(readReceived(join(cfg.wallet.walletDir, "data.sqlite")), now());
   };
   setInterval(() => void reconcile().catch((e) => console.error(`sync failed: ${(e as Error).message}`)), (cfg.syncEverySec ?? 60) * 1000);
