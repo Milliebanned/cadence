@@ -1,0 +1,7 @@
+node_modules/
+*.log
+*.tmp
+wallet-data/
+*.key
+keys.toml
+.env

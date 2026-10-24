@@ -1,0 +1,11 @@
+{
+  "name": "cadence",
+  "version": "0.1.0",
+  "description": "Private autopay subscriptions for shielded Zcash: signed per-cycle invoices, a policy engine that enforces the subscriber's mandate, and a merchant that only holds a viewing key.",
+  "type": "module",
+  "license": "MIT",
+  "engines": { "node": ">=24" },
+  "scripts": {
+    "test": "node --test test/*.test.ts"
+  }
+}
