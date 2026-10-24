@@ -1,12 +1,18 @@
 export type Network = "main" | "test";
 
-/** What the subscriber agrees to. The merchant is bound by key, not by address,
- *  so every cycle can use a fresh address without weakening the limits. */
+/** Who gets paid.
+ *  - "address": any shielded address the payee already has. Needs nothing from the payee.
+ *    Paying one shielded address every cycle is not visible on chain, since the recipient is encrypted.
+ *  - "merchant": a merchant that signs one invoice per cycle with a fresh address. The mandate
+ *    binds the merchant's key rather than an address, so addresses can rotate without loosening limits. */
+export type Payee = { mode: "address"; address: string } | { mode: "merchant"; merchantKey: string };
+
+/** What the subscriber agrees to. */
 export interface Mandate {
   v: 1;
   id: string;
   network: Network;
-  merchantKey: string; // ed25519 public key, hex
+  payee: Payee;
   planId: string;
   amountZat: number; // exact amount per cycle
   periodSec: number;
@@ -17,7 +23,8 @@ export interface Mandate {
   jitterSec: number; // the agent sends at a random point inside this window
 }
 
-/** Issued by the merchant, one per cycle, signed with the merchant key. */
+/** One payment. In merchant mode the merchant issues and signs it; in address mode
+ *  the agent builds it locally from the mandate and it carries no signature. */
 export interface Invoice {
   v: 1;
   mandateId: string;

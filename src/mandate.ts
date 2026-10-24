@@ -1,11 +1,19 @@
 import { canonical, sha256Hex } from "./canonical.ts";
-import type { Mandate, MandateState, Network } from "./types.ts";
+import { memoFor } from "./invoice.ts";
+import type { Invoice, Mandate, MandateState, Network } from "./types.ts";
 
 type MandateInput = Omit<Mandate, "v" | "id">;
 
 export function createMandate(input: MandateInput): Mandate {
   const body = { v: 1 as const, ...input };
-  if (!/^[0-9a-f]{64}$/.test(input.merchantKey)) throw new Error("merchantKey must be 32 bytes of hex");
+  const { payee } = input;
+  if (payee.mode === "merchant") {
+    if (!/^[0-9a-f]{64}$/.test(payee.merchantKey)) throw new Error("merchantKey must be 32 bytes of hex");
+  } else if (payee.mode === "address") {
+    if (networkOfAddress(payee.address) !== input.network) throw new Error("payee address is not on the mandate's network");
+  } else {
+    throw new Error("unknown payee mode");
+  }
   if (!Number.isSafeInteger(input.amountZat) || input.amountZat <= 0) throw new Error("amountZat must be a positive integer");
   if (input.periodSec < 60) throw new Error("periodSec must be at least 60");
   if (input.maxCycles < 1) throw new Error("maxCycles must be at least 1");
@@ -25,6 +33,20 @@ export function maxTotalZat(m: Mandate): number {
 /** Unix time at which cycle n (1-based) becomes due. */
 export function dueAtForCycle(m: Mandate, cycle: number): number {
   return m.startAt + (cycle - 1) * m.periodSec;
+}
+
+/** The payment for a cycle in address mode, built from the mandate alone. */
+export function localInvoice(m: Mandate, cycle: number): Invoice {
+  if (m.payee.mode !== "address") throw new Error("local invoices exist only in address mode");
+  return {
+    v: 1,
+    mandateId: m.id,
+    cycle,
+    address: m.payee.address,
+    amountZat: m.amountZat,
+    memo: memoFor(m.id, cycle),
+    dueAt: dueAtForCycle(m, cycle),
+  };
 }
 
 export function networkOfAddress(address: string): Network | null {

@@ -20,7 +20,13 @@ export function evaluate(
   if (now < mandate.startAt) reasons.push("mandate not started");
 
   if (invoice.mandateId !== mandate.id) reasons.push("invoice is for a different mandate");
-  if (!verifyInvoice(invoice, mandate.merchantKey)) reasons.push("invoice signature does not match the merchant key");
+  const { payee } = mandate;
+  if (payee.mode === "merchant") {
+    if (!verifyInvoice(invoice, payee.merchantKey)) reasons.push("invoice signature does not match the merchant key");
+    if (state.usedAddresses.includes(invoice.address)) reasons.push("address was already used");
+  } else if (invoice.address !== payee.address) {
+    reasons.push("address differs from the mandate's payee");
+  }
 
   const expectedCycle = state.cyclesPaid + 1;
   if (invoice.cycle !== expectedCycle) reasons.push(`expected cycle ${expectedCycle}, got ${invoice.cycle}`);
@@ -34,7 +40,6 @@ export function evaluate(
   if (now < due) reasons.push("not due yet");
   if (now > due + mandate.graceSec) reasons.push("invoice is past its grace period");
 
-  if (state.usedAddresses.includes(invoice.address)) reasons.push("address was already used");
   if (networkOfAddress(invoice.address) !== mandate.network) reasons.push("address is on the wrong network");
   if (address.network !== mandate.network) reasons.push("wallet decoded the address on a different network");
   if (!address.receivers.some((r) => r === "orchard" || r === "sapling")) reasons.push("address has no shielded receiver");

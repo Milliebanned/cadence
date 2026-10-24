@@ -1,7 +1,7 @@
 import { existsSync, readFileSync, renameSync, writeFileSync } from "node:fs";
 import { AuditLog } from "./audit.ts";
 import { evaluate } from "./policy.ts";
-import { freshState } from "./mandate.ts";
+import { freshState, localInvoice } from "./mandate.ts";
 import { pickSendTime } from "./schedule.ts";
 import type { Invoice, Mandate, MandateState } from "./types.ts";
 import type { WalletAdapter } from "./wallet.ts";
@@ -24,10 +24,11 @@ export class Agent {
   private readonly storePath: string;
   private readonly audit: AuditLog;
   private readonly wallet: WalletAdapter;
-  private readonly getInvoice: InvoiceProvider;
+  private readonly getInvoice: InvoiceProvider | undefined;
   private data: StoreFile;
 
-  constructor(opts: { storePath: string; auditPath: string; wallet: WalletAdapter; getInvoice: InvoiceProvider }) {
+  /** getInvoice fetches merchant-signed invoices; it is only needed for merchant-mode mandates. */
+  constructor(opts: { storePath: string; auditPath: string; wallet: WalletAdapter; getInvoice?: InvoiceProvider }) {
     this.storePath = opts.storePath;
     this.audit = new AuditLog(opts.auditPath);
     this.wallet = opts.wallet;
@@ -47,7 +48,11 @@ export class Agent {
     if (this.data.mandates[mandate.id]) throw new Error("mandate already exists");
     this.data.mandates[mandate.id] = { mandate, state: freshState() };
     this.save();
-    this.audit.append("subscribe", { mandateId: mandate.id, planId: mandate.planId, amountZat: mandate.amountZat }, now);
+    this.audit.append(
+      "subscribe",
+      { mandateId: mandate.id, planId: mandate.planId, payeeMode: mandate.payee.mode, amountZat: mandate.amountZat },
+      now,
+    );
   }
 
   revoke(mandateId: string, now: number): void {
@@ -116,7 +121,9 @@ export class Agent {
 
     let invoice: Invoice;
     try {
-      invoice = await this.getInvoice(mandate, cycle);
+      if (mandate.payee.mode === "address") invoice = localInvoice(mandate, cycle);
+      else if (this.getInvoice) invoice = await this.getInvoice(mandate, cycle);
+      else throw new Error("no invoice source configured for a merchant-mode mandate");
     } catch (e) {
       const error = e instanceof Error ? e.message : String(e);
       this.audit.append("invoice-unavailable", { mandateId, cycle, error }, now);

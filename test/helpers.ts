@@ -10,7 +10,7 @@ export const merchant = generateMerchantKeys();
 export function makeMandate(over: Partial<Parameters<typeof createMandate>[0]> = {}): Mandate {
   return createMandate({
     network: "test",
-    merchantKey: merchant.publicKeyHex,
+    payee: { mode: "merchant", merchantKey: merchant.publicKeyHex },
     planId: "plan-pro",
     amountZat: 5_000_000,
     periodSec: 30 * DAY,
