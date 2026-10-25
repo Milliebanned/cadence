@@ -124,8 +124,8 @@ export const APP_CSS = `${THEME_CSS}
 .hero{display:grid;grid-template-columns:2fr 1fr 1fr 1fr;gap:14px;margin-bottom:30px}
 @media (max-width:1000px){.hero{grid-template-columns:1fr 1fr}.hero .next{grid-column:1/-1}}
 .stat{display:flex;flex-direction:column;gap:2px}.stat strong{font-size:26px;letter-spacing:-.02em;margin-top:4px}
-.next{display:flex;align-items:center;gap:16px;background:linear-gradient(135deg,var(--surface),var(--gold-soft))}
-.next .avatar{width:48px;height:48px;font-size:19px;border-radius:14px;background:var(--surface);border:1px solid var(--line)}
+.next{display:flex;align-items:center;gap:16px;background:linear-gradient(135deg,rgba(232,180,76,.18),rgba(232,180,76,.03));border-color:rgba(232,180,76,.3)}
+.next .avatar{width:50px;height:50px;font-size:20px;border-radius:15px}
 .next-main{flex:1;min-width:0}.next-main h2{font-size:18px;margin-top:2px}
 .next-when{text-align:right}.next-when strong{display:block;font-size:26px;letter-spacing:-.02em}
 
@@ -147,7 +147,7 @@ export const APP_CSS = `${THEME_CSS}
 .sub-next{display:inline-flex;align-items:center;gap:8px;font-size:13.5px;color:var(--ink-2)}
 .sub-next .ico{color:var(--gold)}
 .sub-actions{display:flex;gap:8px}
-.sub.done{box-shadow:none;background:transparent}.sub.done .sub-progress{display:none}
+.sub.done{box-shadow:none;background:transparent;opacity:.7}.sub.done .sub-progress{display:none}
 .note{margin-top:14px;padding:11px 13px;border-radius:10px;font-size:13.5px;background:var(--warn-soft);color:var(--warn)}
 .details{margin-top:16px;padding-top:16px;border-top:1px solid var(--line);display:grid;grid-template-columns:1fr 1fr;gap:22px}
 @media (max-width:620px){.details{grid-template-columns:1fr}}
@@ -162,7 +162,7 @@ export const APP_CSS = `${THEME_CSS}
 .add-lead{margin:4px 0 14px}
 .seg{display:grid;grid-template-columns:1fr 1fr;gap:4px;background:var(--soft);padding:4px;border-radius:11px;margin-bottom:16px}
 .seg-btn{font:inherit;font-size:13px;font-weight:600;border:0;background:none;color:var(--muted);padding:8px;border-radius:8px;cursor:pointer}
-.seg-btn.active{background:var(--raised);color:var(--ink);box-shadow:0 1px 2px rgba(0,0,0,.08)}
+.seg-btn.active{background:rgba(255,255,255,.09);color:var(--ink);box-shadow:inset 0 1px 0 rgba(255,255,255,.06)}
 .form{display:flex;flex-direction:column;gap:14px}
 .row2{display:grid;grid-template-columns:1fr 1fr;gap:12px}
 .mono-in{font-family:var(--mono);font-size:13px}
@@ -173,16 +173,16 @@ export const APP_CSS = `${THEME_CSS}
 .timeline li::before{content:"";position:absolute;left:5px;top:16px;bottom:-2px;width:1px;background:var(--line)}
 .timeline li:last-child::before{display:none}
 .dot{position:absolute;left:0;top:5px;width:11px;height:11px;border-radius:50%;border:2px solid var(--surface);background:var(--line-2);box-shadow:0 0 0 1px var(--line-2)}
-.dot.paid{background:var(--ok);box-shadow:0 0 0 1px var(--ok)}.dot.subscribe{background:var(--gold);box-shadow:0 0 0 1px var(--gold)}
+.dot.paid,.dot.confirmed{background:var(--ok);box-shadow:0 0 0 1px var(--ok)}.dot.expired-unmined{background:var(--warn);box-shadow:0 0 0 1px var(--warn)}.dot.subscribe{background:var(--gold);box-shadow:0 0 0 1px var(--gold)}
 .dot.refused,.dot.send-error{background:var(--bad);box-shadow:0 0 0 1px var(--bad)}.dot.preflight-failed,.dot.invoice-unavailable{background:var(--warn);box-shadow:0 0 0 1px var(--warn)}
 .timeline .t{color:var(--muted);font-size:12px;margin-top:1px}
 
-.privacy{display:flex;flex-direction:column;gap:14px;background:var(--soft);box-shadow:none}
+.privacy{display:flex;flex-direction:column;gap:14px}
 .privacy-row{display:flex;gap:12px}.privacy-row .ico{color:var(--gold);margin-top:2px}
 .privacy strong{font-size:14px}
 
-.sheet{position:fixed;inset:0;background:rgba(10,9,7,.55);backdrop-filter:blur(3px);display:flex;align-items:center;justify-content:center;padding:16px;z-index:20}
-.sheet-card{background:var(--surface);border:1px solid var(--line);border-radius:22px;max-width:560px;width:100%;padding:28px;box-shadow:var(--shadow-l)}
+.sheet{position:fixed;inset:0;background:rgba(4,3,5,.7);backdrop-filter:blur(8px);display:flex;align-items:center;justify-content:center;padding:16px;z-index:20}
+.sheet-card{background:linear-gradient(180deg,#1c1914,#111009);border:1px solid var(--line-2);border-radius:26px;max-width:560px;width:100%;padding:28px;box-shadow:var(--shadow-l)}
 .sheet-who{display:flex;gap:14px;align-items:center;margin-top:12px}.sheet-who h2{font-size:22px}
 .sheet-amount{display:flex;align-items:baseline;gap:10px;margin:22px 0 18px;padding:16px 18px;border-radius:14px;background:var(--soft);flex-wrap:wrap}
 .sheet-amount strong{font-size:34px;letter-spacing:-.025em}
@@ -291,7 +291,8 @@ export const APP_JS = `"use strict";
           h("span", { style: "width:" + Math.min(100, s.capUsedPct) + "%" }))),
       note,
       h("div", { class: "sub-foot" },
-        running && next ? h("span", { class: "sub-next", icon: "clock" }, next <= nowSec() ? "Paying now" : "Next payment " + rel(next)) : h("span", { class: "muted small" }, s.status === "complete" ? "All " + s.maxCycles + " payments made" : stLabel),
+        running && s.confirming ? h("span", { class: "sub-next", icon: "clock" }, "Payment " + s.confirming + " confirming on chain…")
+          : running && next ? h("span", { class: "sub-next", icon: "clock" }, next <= nowSec() ? "Paying now" : "Next payment " + rel(next)) : h("span", { class: "muted small" }, s.status === "complete" ? "All " + s.maxCycles + " payments made" : stLabel),
         h("div", { class: "sub-actions" }, actions)),
       details);
   }
@@ -305,6 +306,8 @@ export const APP_JS = `"use strict";
     "preflight-failed": (e) => "Not sent · " + e.label + ": " + e.detail,
     "invoice-unavailable": (e) => "No invoice from " + e.label + ": " + e.detail,
     revoke: (e) => "Revoked " + e.label,
+    confirmed: (e) => "Confirmed on chain · " + e.label + " payment " + e.cycle,
+    "expired-unmined": (e) => "Payment " + e.cycle + " of " + e.label + " never reached the chain; it will be sent again",
     "resolve-pending": (e) => "Resolved payment " + e.cycle + " · " + e.label,
   };
 

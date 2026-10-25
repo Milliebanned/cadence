@@ -132,3 +132,35 @@ test("send times stay inside the jitter window and are not constant", () => {
   }
   assert.ok(times.size > 100);
 });
+
+test("a broadcast payment blocks the next cycle until it is mined", async () => {
+  const { agent, wallet, m } = setup();
+  const [first] = await agent.tick(T0 + 10, zero);
+  assert.equal(first!.action, "paid");
+  wallet.status.set(wallet.sent[0]!.txid, "pending");
+  const [blocked] = await agent.tick(T0 + 30 * DAY + 10, zero);
+  assert.equal(blocked!.action, "confirming");
+  assert.equal(wallet.sent.length, 1);
+  wallet.status.set(wallet.sent[0]!.txid, "mined");
+  const [second] = await agent.tick(T0 + 30 * DAY + 20, zero);
+  assert.equal(second!.action, "paid");
+  assert.equal(agent.stateOf(m.id).cyclesPaid, 2);
+});
+
+test("a payment that expires unmined is reopened and paid again, exactly once", async () => {
+  const { agent, wallet, m, auditPath } = setup();
+  await agent.tick(T0 + 10, zero);
+  const dropped = wallet.sent[0]!;
+  wallet.status.set(dropped.txid, "expired");
+  const [again] = await agent.tick(T0 + 600, zero);
+  assert.equal(again!.action, "paid", JSON.stringify(again));
+  assert.equal(again!.action === "paid" ? again.cycle : 0, 1, "the same cycle is paid again");
+  const s = agent.stateOf(m.id);
+  assert.equal(s.cyclesPaid, 1);
+  assert.equal(s.totalPaidZat, m.amountZat, "the dropped payment is not counted");
+  assert.equal(wallet.sent.length, 2);
+  const events = AuditLog.read(auditPath).map((e) => e.event);
+  assert.ok(events.includes("expired-unmined"));
+  const [idle] = await agent.tick(T0 + 700, zero);
+  assert.equal(idle!.action, "waiting", "nothing more until the next cycle is due");
+});

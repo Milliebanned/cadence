@@ -1,4 +1,6 @@
 import { execFile } from "node:child_process";
+import { DatabaseSync } from "node:sqlite";
+import { join } from "node:path";
 import { promisify } from "node:util";
 import type { AddressInfo, Network } from "./types.ts";
 import type { WalletAdapter } from "./wallet.ts";
@@ -117,6 +119,22 @@ export class DevtoolWallet implements WalletAdapter {
 
   async balance(): Promise<Balance> {
     return parseBalance(lastJsonLine(await this.exec(["wallet", "-w", this.o.walletDir, "balance", "--json"], 60_000)));
+  }
+
+  async txStatus(txid: string): Promise<"mined" | "pending" | "expired"> {
+    await this.sync();
+    const db = new DatabaseSync(join(this.o.walletDir, "data.sqlite"), { readOnly: true });
+    try {
+      const internal = Buffer.from(txid, "hex").reverse();
+      const row = db.prepare("SELECT mined_height, expired_unmined FROM v_transactions WHERE txid = ? LIMIT 1").get(internal) as
+        | { mined_height: number | null; expired_unmined: number }
+        | undefined;
+      if (row?.mined_height) return "mined";
+      if (row?.expired_unmined) return "expired";
+      return "pending";
+    } finally {
+      db.close();
+    }
   }
 
   async newAddress(): Promise<string> {

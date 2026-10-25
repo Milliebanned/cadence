@@ -8,8 +8,7 @@ export const ADMIN_HTML = `<!doctype html>
 <meta name="referrer" content="no-referrer">
 <title>Cadence · Merchant</title>
 <style>${THEME_CSS}
-:root{--chart:#b07a12;--grid:#ece8de}
-@media (prefers-color-scheme:dark){:root{--chart:#b8832a;--grid:#26231d}}
+:root{--chart:#b8832a;--grid:rgba(255,255,255,.06)}
 .badges{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
 .title{display:flex;align-items:flex-end;justify-content:space-between;gap:16px;flex-wrap:wrap;margin-bottom:22px}
 .title h1{font-size:26px}
@@ -18,7 +17,7 @@ export const ADMIN_HTML = `<!doctype html>
 @media (max-width:860px){.kpis{grid-template-columns:repeat(2,minmax(0,1fr))}}
 .kpi{padding:18px 20px}.kpi strong{display:block;font-size:30px;letter-spacing:-.03em;margin:6px 0 2px}
 .kpi small{color:var(--muted);font-size:12.5px}
-.kpi.lead{background:linear-gradient(135deg,var(--surface),var(--gold-soft))}
+.kpi.lead{background:linear-gradient(135deg,rgba(232,180,76,.16),rgba(232,180,76,.03));border-color:rgba(232,180,76,.28)}
 .stack{display:flex;flex-direction:column;gap:18px}
 .grid2{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:18px}
 @media (max-width:920px){.grid2{grid-template-columns:1fr}}
@@ -32,7 +31,7 @@ export const ADMIN_HTML = `<!doctype html>
 .err{margin-bottom:14px}
 .planlink{display:inline-flex;align-items:center;gap:6px;font-size:13px;color:var(--ink-2);text-decoration:none;border-bottom:1px solid var(--line-2)}
 .planlink .ico{width:14px;height:14px}
-.vk{display:flex;gap:12px;align-items:flex-start;background:var(--soft);box-shadow:none}
+.vk{display:flex;gap:12px;align-items:flex-start}
 .vk .ico{color:var(--gold);margin-top:2px}
 </style>
 </head>

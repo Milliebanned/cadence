@@ -16,6 +16,7 @@ export type TickResult =
   | { mandateId: string; action: "paid"; cycle: number; txid: string }
   | { mandateId: string; action: "refused"; cycle: number; reasons: string[] }
   | { mandateId: string; action: "waiting"; cycle: number; sendAt: number }
+  | { mandateId: string; action: "confirming"; cycle: number; txid: string }
   | { mandateId: string; action: "blocked"; reason: string }
   | { mandateId: string; action: "failed"; cycle: number; error: string }
   | { mandateId: string; action: "idle"; reason: string };
@@ -114,8 +115,34 @@ export class Agent {
     now: number,
     rand?: (maxExclusive: number) => number,
   ): Promise<TickResult> {
-    if (state.revoked) return { mandateId, action: "idle", reason: "revoked" };
     if (state.pending) return { mandateId, action: "blocked", reason: "a send is pending confirmation" };
+
+    // A broadcast payment is only paid once it is mined. Until then nothing else is sent; if it
+    // expires unmined it can never be mined, so the cycle is reopened and paid again.
+    if (state.unconfirmed && this.wallet.txStatus) {
+      const u = state.unconfirmed;
+      let st: "mined" | "pending" | "expired";
+      try {
+        st = await this.wallet.txStatus(u.txid);
+      } catch (e) {
+        return { mandateId, action: "failed", cycle: u.cycle, error: (e as Error).message };
+      }
+      if (st === "pending") return { mandateId, action: "confirming", cycle: u.cycle, txid: u.txid };
+      if (st === "mined") {
+        state.unconfirmed = null;
+        this.save();
+        this.audit.append("confirmed", { mandateId, cycle: u.cycle, txid: u.txid }, now);
+      } else {
+        state.cyclesPaid = u.cycle - 1;
+        state.totalPaidZat -= u.amountZat;
+        const i = state.usedAddresses.lastIndexOf(u.address);
+        if (i >= 0) state.usedAddresses.splice(i, 1);
+        state.unconfirmed = null;
+        this.save();
+        this.audit.append("expired-unmined", { mandateId, cycle: u.cycle, txid: u.txid }, now);
+      }
+    }
+    if (state.revoked) return { mandateId, action: "idle", reason: "revoked" };
     if (state.cyclesPaid >= mandate.maxCycles) return { mandateId, action: "idle", reason: "all cycles paid" };
     if (now >= mandate.expiresAt) return { mandateId, action: "idle", reason: "expired" };
 
@@ -168,6 +195,7 @@ export class Agent {
       state.usedAddresses.push(invoice.address);
       state.lastPaidAt = now;
       state.pending = null;
+      if (this.wallet.txStatus) state.unconfirmed = { cycle, txid, address: invoice.address, amountZat: invoice.amountZat };
       this.save();
       this.audit.append("paid", { mandateId, cycle, txid }, now);
       return { mandateId, action: "paid", cycle, txid };

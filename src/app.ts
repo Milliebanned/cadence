@@ -158,6 +158,7 @@ export function subscriberApp(opts: AppOptions): { server: Server; stop: () => v
       expiresAt: m.expiresAt,
       status,
       pending: s.pending,
+      confirming: s.unconfirmed?.cycle ?? null,
       lastResult: last
         ? {
             action: last.action,

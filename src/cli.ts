@@ -263,8 +263,11 @@ async function agentCmd(sub: string, args: string[]): Promise<void> {
     if (!values.rpc) usage();
     const items: Array<{ payment: Payment; tx: TxView }> = [];
     let network = "";
-    for (const e of AuditLog.read(join(dataDir, "audit.log"))) {
-      if (e.event !== "paid") continue;
+    const entries = AuditLog.read(join(dataDir, "audit.log"));
+    // A payment that expired unmined never happened on chain; its cycle was paid again later.
+    const dropped = new Set(entries.filter((e) => e.event === "expired-unmined").map((e) => String((e.detail as { txid: string }).txid)));
+    for (const e of entries) {
+      if (e.event !== "paid" || dropped.has(String((e.detail as { txid: string }).txid))) continue;
       const { mandateId, cycle, txid } = e.detail as { mandateId: string; cycle: number; txid: string };
       const mandate = agent.mandate(mandateId);
       network = mandate.network;

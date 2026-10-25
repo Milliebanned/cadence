@@ -25,7 +25,7 @@ export function checkoutHtml(opts: { merchantName: string; plan: Plan; offerUrl:
 <style>${THEME_CSS}
 .shop{max-width:1040px;margin:0 auto;padding:22px 28px;display:flex;align-items:center;justify-content:space-between}
 .shop-name{display:flex;align-items:center;gap:10px;font-weight:650;font-size:16px}
-.shop-name .avatar{width:32px;height:32px;border-radius:9px;font-size:14px;background:var(--ink);color:var(--paper)}
+.shop-name .avatar{width:34px;height:34px;border-radius:10px;font-size:15px}
 .secure{display:inline-flex;align-items:center;gap:6px;font-size:13px;color:var(--muted)}.secure .ico{width:15px;height:15px;color:var(--ok)}
 .wrap{max-width:1040px;margin:0 auto;padding:12px 28px 72px;display:grid;grid-template-columns:1.1fr 1fr;gap:40px;align-items:start}
 @media (max-width:880px){.wrap{grid-template-columns:1fr;gap:24px;padding:8px 16px 56px}.shop{padding:18px 16px}}
@@ -36,7 +36,11 @@ export function checkoutHtml(opts: { merchantName: string; plan: Plan; offerUrl:
 .terms{margin-top:28px;display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px}
 .term{padding:14px 16px;border:1px solid var(--line);border-radius:var(--r);background:var(--surface)}
 .term strong{display:block;font-size:17px;letter-spacing:-.01em}.term span{font-size:12.5px;color:var(--muted)}
-.pay{position:sticky;top:24px}
+.pay{position:sticky;top:24px;background:linear-gradient(180deg,#1b1813,#100f0b);border-color:var(--line-2)}
+.priv{margin-top:34px;padding-top:28px;border-top:1px solid var(--line);display:grid;gap:18px}
+.priv-row{display:grid;grid-template-columns:40px 1fr;gap:14px;align-items:start}
+.priv-row .pi{width:40px;height:40px;border-radius:12px;display:flex;align-items:center;justify-content:center;background:var(--gold-soft);color:var(--gold);border:1px solid rgba(232,180,76,.22)}
+.priv-row strong{display:block;font-size:15px;margin-bottom:2px}.priv-row span{color:var(--muted);font-size:14px}
 .pay-head{padding:24px 26px 0}
 .price{display:flex;align-items:baseline;gap:8px;margin-top:6px}.price strong{font-size:44px;letter-spacing:-.035em;line-height:1}
 .price span{color:var(--muted);font-size:15px}
@@ -70,6 +74,11 @@ export function checkoutHtml(opts: { merchantName: string; plan: Plan; offerUrl:
       <div class="term"><strong class="num">${zec(plan.amountZat)} ZEC</strong><span>per payment</span></div>
       <div class="term"><strong>${esc(every(plan.periodSec))}</strong><span>between payments</span></div>
       <div class="term"><strong class="num">${plan.maxCycles}×</strong><span>at most, ${zec(total)} ZEC total</span></div>
+    </div>
+    <div class="priv">
+      <div class="priv-row"><span class="pi">${ICONS.eyeOff}</span><div><strong>Nobody else sees this purchase</strong><span>Payments are shielded Zcash. The chain shows neither you, us, nor the amount.</span></div></div>
+      <div class="priv-row"><span class="pi">${ICONS.key}</span><div><strong>We can't over-charge you</strong><span>You approve a hard limit in your own app. We never hold a key that can spend.</span></div></div>
+      <div class="priv-row"><span class="pi">${ICONS.repeat}</span><div><strong>Cancel in one click</strong><span>Revoke in Cadence and the next payment simply never happens.</span></div></div>
     </div>
   </section>
 

@@ -46,6 +46,8 @@ export interface MandateState {
   sendAt: Record<string, number>;
   /** a send that started but is not confirmed; blocks a second payment for the cycle */
   pending: { cycle: number; address: string; startedAt: number } | null;
+  /** broadcast but not yet mined; the next cycle waits until this one is on chain */
+  unconfirmed?: { cycle: number; txid: string; address: string; amountZat: number } | null;
 }
 
 export type Decision = { ok: true } | { ok: false; reasons: string[] };
