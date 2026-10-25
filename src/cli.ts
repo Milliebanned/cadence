@@ -190,7 +190,10 @@ async function agentCmd(sub: string, args: string[]): Promise<void> {
     if (!cfg.network) throw new Error('set "network" in the agent config to use the app');
     acquireLock(join(dataDir, "agent.lock"));
     const port = Number(values.port ?? cfg.appPort ?? 8790);
-    const token = newAppToken();
+    // Kept across restarts so a browser that opened Cadence once stays signed in. Only this user can read it.
+    const tokenPath = join(dataDir, "app-token");
+    if (!existsSync(tokenPath)) writeSecret(tokenPath, newAppToken());
+    const token = loadJson<string>(tokenPath);
     const { server } = subscriberApp({
       agent,
       meta,

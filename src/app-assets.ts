@@ -358,7 +358,9 @@ export const APP_JS = `"use strict";
       $("top-error").classList.add("hidden");
     } catch (e) {
       const el = $("top-error");
-      el.textContent = token ? e.message : "Open Cadence with the link printed in your terminal; it carries this session's key.";
+      el.textContent = /token/.test(e.message) || !token
+        ? "This browser doesn't have Cadence's current access key. Open Cadence once from the demo page (or the link printed in your terminal), then come back."
+        : e.message;
       el.classList.remove("hidden");
     }
   }
