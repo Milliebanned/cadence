@@ -7,15 +7,26 @@ import { Agent } from "./agent.ts";
 import { AuditLog } from "./audit.ts";
 import { DevtoolWallet } from "./devtool.ts";
 import { generateMerchantKeys, type MerchantKeys } from "./invoice.ts";
-import { createMandate } from "./mandate.ts";
 import { Merchant, signWebhook, type Plan } from "./merchant.ts";
+import { subscriberApp, newAppToken } from "./app.ts";
+import { acquireLock } from "./lock.ts";
+import {
+  DAY,
+  MetaStore,
+  describeLimits,
+  directMandate,
+  duration,
+  fetchOffer,
+  mandateFromOffer,
+  registerWithMerchant,
+  zecToZat,
+} from "./subscribe.ts";
 import { readReceived } from "./scan.ts";
 import { buildReport, fetchTxRpc, renderMarkdown, type Payment, type TxView } from "./proof.ts";
 import { merchantServer } from "./server.ts";
 import type { Invoice, Mandate, Network } from "./types.ts";
 
 const now = () => Math.floor(Date.now() / 1000);
-const DAY = 86_400;
 
 interface WalletConfig {
   devtool: string;
@@ -26,8 +37,11 @@ interface WalletConfig {
 }
 
 interface AgentConfig {
+  /** network of the subscriber wallet; required by the app */
+  network?: Network;
   dataDir: string;
   wallet: WalletConfig;
+  appPort?: number;
 }
 
 interface MerchantConfig {
@@ -53,24 +67,12 @@ function writeSecret(path: string, value: unknown): void {
   chmodSync(path, 0o600);
 }
 
-function zecToZat(s: string): number {
-  if (!/^\d+(\.\d{1,8})?$/.test(s)) throw new Error(`invalid ZEC amount: ${s}`);
-  const [whole, frac = ""] = s.split(".");
-  return Number(whole) * 1e8 + Number(frac.padEnd(8, "0"));
-}
-
-function duration(sec: number): string {
-  if (sec % DAY === 0) return `${sec / DAY} day${sec === DAY ? "" : "s"}`;
-  if (sec % 3600 === 0) return `${sec / 3600} hour${sec === 3600 ? "" : "s"}`;
-  if (sec % 60 === 0) return `${sec / 60} minute${sec === 60 ? "" : "s"}`;
-  return `${sec} seconds`;
-}
-
 function usage(): never {
   console.log(`cadence: private autopay subscriptions for shielded Zcash
 
   cadence agent subscribe --config agent.json --offer <merchant-url>/offer/<plan> [--cycles N] [--jitter-min M]
   cadence agent subscribe --config agent.json --address <shielded address> --amount <ZEC> --every-days D --cycles N [--network test|main|regtest]
+  cadence agent app       --config agent.json [--port P]     local app: subscriptions, approvals, revoke
   cadence agent run       --config agent.json [--once] [--every-sec S]
   cadence agent status    --config agent.json
   cadence agent revoke    --config agent.json --mandate <id>
@@ -88,8 +90,7 @@ function usage(): never {
 function agentParts(configPath: string) {
   const cfg = loadJson<AgentConfig>(configPath);
   const dataDir = resolve(cfg.dataDir);
-  const merchantsPath = join(dataDir, "merchants.json");
-  const merchants: Record<string, string> = existsSync(merchantsPath) ? loadJson(merchantsPath) : {};
+  const meta = new MetaStore(join(dataDir, "subscriptions.json"), join(dataDir, "merchants.json"));
   const wallet = new DevtoolWallet({
     bin: cfg.wallet.devtool,
     walletDir: cfg.wallet.walletDir,
@@ -102,14 +103,14 @@ function agentParts(configPath: string) {
     auditPath: join(dataDir, "audit.log"),
     wallet,
     getInvoice: async (mandate: Mandate, cycle: number): Promise<Invoice> => {
-      const base = merchants[mandate.id];
+      const base = meta.get(mandate.id)?.merchantUrl;
       if (!base) throw new Error("no merchant URL recorded for this mandate");
       const r = await fetch(`${base}/invoices/${mandate.id}/${cycle}`, { signal: AbortSignal.timeout(30_000) });
       if (!r.ok) throw new Error(`merchant returned ${r.status}`);
       return (await r.json()) as Invoice;
     },
   });
-  return { cfg, dataDir, merchants, merchantsPath, agent };
+  return { cfg, dataDir, meta, agent, wallet };
 }
 
 async function agentCmd(sub: string, args: string[]): Promise<void> {
@@ -133,70 +134,76 @@ async function agentCmd(sub: string, args: string[]): Promise<void> {
       rpc: { type: "string" },
       control: { type: "string" },
       out: { type: "string" },
+      port: { type: "string" },
+      label: { type: "string" },
     },
   });
   if (!values.config) usage();
-  const { dataDir, merchants, merchantsPath, agent } = agentParts(values.config);
+  const { cfg, dataDir, meta, agent, wallet } = agentParts(values.config);
 
   if (sub === "subscribe") {
     const start = now();
     const jitterSec = Number(values["jitter-min"]) * 60;
     let mandate: Mandate;
+    let label: string;
+    let merchantUrl: string | undefined;
     if (values.offer) {
-      const offerUrl = new URL(values.offer);
-      const r = await fetch(offerUrl, { signal: AbortSignal.timeout(30_000) });
-      if (!r.ok) throw new Error(`offer returned ${r.status}`);
-      const offer = (await r.json()) as { network: Network; merchantKey: string; plan: Plan };
-      const cycles = Number(values.cycles ?? offer.plan.maxCycles);
-      mandate = createMandate({
-        network: offer.network,
-        payee: { mode: "merchant", merchantKey: offer.merchantKey },
-        planId: offer.plan.id,
-        amountZat: offer.plan.amountZat,
-        periodSec: offer.plan.periodSec,
-        maxCycles: Math.min(cycles, offer.plan.maxCycles),
-        startAt: start,
-        expiresAt: start + offer.plan.periodSec * cycles + offer.plan.graceSec + 1,
-        graceSec: offer.plan.graceSec,
-        jitterSec: Math.min(jitterSec, offer.plan.graceSec),
-      });
-      const base = offerUrl.origin + offerUrl.pathname.replace(/\/offer\/[^/]+$/, "");
-      const reg = await fetch(`${base}/subscriptions`, {
-        method: "POST",
-        body: JSON.stringify(mandate),
-        signal: AbortSignal.timeout(30_000),
-      });
-      if (reg.status !== 201) throw new Error(`merchant refused the mandate: ${await reg.text()}`);
-      merchants[mandate.id] = base;
-      writeFileSync(merchantsPath, JSON.stringify(merchants, null, 2));
-      console.log(`Subscribed to "${offer.plan.name}": ${offer.plan.amountZat / 1e8} ZEC every ${duration(offer.plan.periodSec)}, ${mandate.maxCycles} cycles at most.`);
+      const { offer, base } = await fetchOffer(values.offer);
+      mandate = mandateFromOffer(offer, { cycles: values.cycles ? Number(values.cycles) : undefined, jitterSec, now: start });
+      await registerWithMerchant(base, mandate);
+      label = offer.plan.name;
+      merchantUrl = base;
     } else if (values.address && values.amount && values["every-days"] && values.cycles) {
       const periodSec = Math.round(Number(values["every-days"]) * DAY);
-      const cycles = Number(values.cycles);
-      const graceSec = Math.round(Number(values["grace-days"]) * DAY);
-      mandate = createMandate({
+      mandate = directMandate({
         network: values.network === "main" ? "main" : values.network === "regtest" ? "regtest" : "test",
-        payee: { mode: "address", address: values.address },
-        planId: "direct",
+        address: values.address,
         amountZat: zecToZat(values.amount),
         periodSec,
-        maxCycles: cycles,
-        startAt: start,
-        expiresAt: start + periodSec * cycles + graceSec + 1,
-        graceSec,
-        jitterSec: Math.min(jitterSec, graceSec, periodSec - 1),
+        cycles: Number(values.cycles),
+        graceSec: Math.round(Number(values["grace-days"]) * DAY),
+        jitterSec,
+        now: start,
       });
-      console.log(`Autopay set: ${values.amount} ZEC every ${duration(periodSec)}, ${cycles} times, to one shielded address.`);
+      label = values.label ?? "Autopay";
     } else {
       usage();
     }
     agent.subscribe(mandate, start);
+    meta.set(mandate.id, { label, merchantUrl, createdAt: start });
+    for (const line of describeLimits(mandate, label)) console.log(line);
     console.log(`Mandate ${mandate.id}`);
-    console.log(`Limit: ${(mandate.amountZat * mandate.maxCycles) / 1e8} ZEC in total. Revoke any time with: cadence agent revoke --mandate ${mandate.id.slice(0, 12)}...`);
+    return;
+  }
+
+  if (sub === "app") {
+    if (!cfg.network) throw new Error('set "network" in the agent config to use the app');
+    acquireLock(join(dataDir, "agent.lock"));
+    const port = Number(values.port ?? cfg.appPort ?? 8790);
+    const token = newAppToken();
+    const { server } = subscriberApp({
+      agent,
+      meta,
+      auditPath: join(dataDir, "audit.log"),
+      network: cfg.network,
+      port,
+      token,
+      balance: async () => {
+        await wallet.sync();
+        return wallet.balance();
+      },
+      tickEverySec: Number(values["every-sec"]),
+      jitterSec: Number(values["jitter-min"]) * 60,
+    });
+    server.listen(port, "127.0.0.1", () => {
+      console.log(`Cadence is running. Open this link (it carries this session's key, keep it private):`);
+      console.log(`  http://127.0.0.1:${port}/#t=${token}`);
+    });
     return;
   }
 
   if (sub === "run") {
+    acquireLock(join(dataDir, "agent.lock"));
     const loop = async () => {
       for (const r of await agent.tick(now())) {
         const id = r.mandateId.slice(0, 12);
