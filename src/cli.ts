@@ -10,6 +10,7 @@ import { generateMerchantKeys, type MerchantKeys } from "./invoice.ts";
 import { createMandate } from "./mandate.ts";
 import { Merchant, signWebhook, type Plan } from "./merchant.ts";
 import { readReceived } from "./scan.ts";
+import { buildReport, fetchTxRpc, renderMarkdown, type Payment, type TxView } from "./proof.ts";
 import { merchantServer } from "./server.ts";
 import type { Invoice, Mandate, Network } from "./types.ts";
 
@@ -76,6 +77,8 @@ function usage(): never {
   cadence agent resolve   --config agent.json --mandate <id> --outcome paid|not-paid
   cadence agent log       --config agent.json [--verify]
 
+  cadence agent proof     --config agent.json --rpc <node JSON-RPC url> [--control <leaky txid>] [--out report.md]
+
   cadence merchant serve  --config merchant.json`);
   process.exit(1);
 }
@@ -127,6 +130,9 @@ async function agentCmd(sub: string, args: string[]): Promise<void> {
       mandate: { type: "string" },
       outcome: { type: "string" },
       verify: { type: "boolean", default: false },
+      rpc: { type: "string" },
+      control: { type: "string" },
+      out: { type: "string" },
     },
   });
   if (!values.config) usage();
@@ -234,6 +240,38 @@ async function agentCmd(sub: string, args: string[]): Promise<void> {
     const id = findId(values.mandate);
     if (values.outcome !== "paid" && values.outcome !== "not-paid") usage();
     agent.resolvePending(id, values.outcome, now());
+    return;
+  }
+  if (sub === "proof") {
+    if (!values.rpc) usage();
+    const items: Array<{ payment: Payment; tx: TxView }> = [];
+    let network = "";
+    for (const e of AuditLog.read(join(dataDir, "audit.log"))) {
+      if (e.event !== "paid") continue;
+      const { mandateId, cycle, txid } = e.detail as { mandateId: string; cycle: number; txid: string };
+      const mandate = agent.mandate(mandateId);
+      network = mandate.network;
+      const payment: Payment = {
+        mandateId,
+        cycle,
+        txid,
+        amountZat: mandate.amountZat,
+        address: agent.stateOf(mandateId).usedAddresses[cycle - 1] ?? null,
+        payeeMode: mandate.payee.mode,
+      };
+      items.push({ payment, tx: await fetchTxRpc(values.rpc, txid) });
+    }
+    if (items.length === 0) throw new Error("the audit log has no payments yet");
+    let control: { payment: Payment; tx: TxView } | undefined;
+    if (values.control) {
+      const tx = await fetchTxRpc(values.rpc, values.control);
+      control = { payment: { mandateId: "control", cycle: 0, txid: values.control, amountZat: 1, address: null, payeeMode: "address" }, tx };
+    }
+    const report = buildReport(network, items, control);
+    const md = renderMarkdown(report);
+    if (values.out) writeFileSync(values.out, md);
+    console.log(md);
+    process.exitCode = report.pass ? 0 : 2;
     return;
   }
   if (sub === "log") {

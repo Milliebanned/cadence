@@ -89,6 +89,12 @@ export class Agent {
     return entry.state;
   }
 
+  mandate(mandateId: string): Mandate {
+    const entry = this.data.mandates[mandateId];
+    if (!entry) throw new Error("unknown mandate");
+    return entry.mandate;
+  }
+
   mandateIds(): string[] {
     return Object.keys(this.data.mandates);
   }
