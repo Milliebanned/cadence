@@ -16,7 +16,7 @@ export interface Plan {
 }
 
 export interface IssuedInvoice extends Invoice {
-  paid: { txid: string; minedHeight: number | null; valueZat: number } | null;
+  paid: { txid: string; minedHeight: number | null; valueZat: number; seenAt?: number } | null;
 }
 
 export interface Subscription {
@@ -27,6 +27,30 @@ export interface Subscription {
 }
 
 export type SubscriptionStatus = "active" | "late" | "lapsed" | "complete" | "cancelled";
+
+interface OverviewRow {
+  mandateId: string;
+  plan: string;
+  amountZat: number;
+  dueAt: number | null;
+  cyclesPaid: number;
+  maxCycles: number;
+  status: SubscriptionStatus;
+}
+
+export interface MerchantOverview {
+  network: Network;
+  counts: Record<SubscriptionStatus, number>;
+  subscriptions: number;
+  receivedZat: number;
+  /** active and late subscriptions, normalised to 30 days */
+  runRateZat: number;
+  daily: Array<{ day: string; zat: number }>;
+  plans: Array<{ id: string; name: string; amountZat: number; periodSec: number; subscribers: number; receivedZat: number }>;
+  upcoming: OverviewRow[];
+  attention: OverviewRow[];
+  payments: Array<{ at: number | null; mandateId: string; plan: string; cycle: number; amountZat: number; txid: string; height: number | null }>;
+}
 
 export interface MerchantEvent {
   type: "subscription.created" | "invoice.issued" | "invoice.paid" | "subscription.cancelled";
@@ -182,7 +206,7 @@ export class Merchant {
       // Value must cover the invoice. The memo is checked but not required, since a wallet may drop it.
       if (p.valueZat < hit.inv.amountZat) continue;
       if (p.memo !== null && p.memo !== hit.inv.memo) continue;
-      hit.inv.paid = { txid: p.txid, minedHeight: p.minedHeight, valueZat: p.valueZat };
+      hit.inv.paid = { txid: p.txid, minedHeight: p.minedHeight, valueZat: p.valueZat, seenAt: now };
       seen.add(key);
       newlyPaid.push({ mandateId: hit.inv.mandateId, cycle: hit.inv.cycle, txid: p.txid });
     }
@@ -210,6 +234,75 @@ export class Merchant {
 
   subscriptions(): Subscription[] {
     return Object.values(this.data.subscriptions);
+  }
+
+  /** Everything the dashboard shows, computed from the merchant's own records. */
+  overview(now: number, days = 14): MerchantOverview {
+    const DAY = 86_400;
+    const subs = this.subscriptions();
+    const planName = (id: string) => this.plans.get(id)?.name ?? id;
+    const counts: Record<SubscriptionStatus, number> = { active: 0, late: 0, lapsed: 0, complete: 0, cancelled: 0 };
+    const upcoming: MerchantOverview["upcoming"] = [];
+    const attention: MerchantOverview["attention"] = [];
+    const payments: MerchantOverview["payments"] = [];
+    let receivedZat = 0;
+    let runRateZat = 0;
+    const perPlan = new Map<string, { subscribers: number; receivedZat: number }>();
+
+    for (const sub of subs) {
+      const { mandate } = sub;
+      const st = this.status(mandate.id, now);
+      counts[st.status]++;
+      const plan = perPlan.get(mandate.planId) ?? { subscribers: 0, receivedZat: 0 };
+      if (st.status === "active" || st.status === "late") {
+        plan.subscribers++;
+        runRateZat += Math.round((mandate.amountZat * 30 * DAY) / mandate.periodSec);
+      }
+      const row = { mandateId: mandate.id, plan: planName(mandate.planId), amountZat: mandate.amountZat, dueAt: st.nextDueAt, cyclesPaid: st.cyclesPaid, maxCycles: mandate.maxCycles, status: st.status };
+      if ((st.status === "active" || st.status === "late") && st.nextDueAt !== null) upcoming.push(row);
+      if (st.status === "late" || st.status === "lapsed") attention.push(row);
+      for (const inv of Object.values(sub.invoices)) {
+        if (!inv.paid) continue;
+        receivedZat += inv.paid.valueZat;
+        plan.receivedZat += inv.paid.valueZat;
+        payments.push({
+          at: inv.paid.seenAt ?? null,
+          mandateId: mandate.id,
+          plan: planName(mandate.planId),
+          cycle: inv.cycle,
+          amountZat: inv.paid.valueZat,
+          txid: inv.paid.txid,
+          height: inv.paid.minedHeight,
+        });
+      }
+      perPlan.set(mandate.planId, plan);
+    }
+
+    const today = Math.floor(now / DAY);
+    const daily = Array.from({ length: days }, (_, i) => {
+      const d = today - (days - 1 - i);
+      return { day: new Date(d * DAY * 1000).toISOString().slice(0, 10), zat: 0 };
+    });
+    for (const p of payments) {
+      if (p.at === null) continue;
+      const idx = Math.floor(p.at / DAY) - (today - (days - 1));
+      if (idx >= 0 && idx < days) daily[idx]!.zat += p.amountZat;
+    }
+
+    upcoming.sort((a, b) => (a.dueAt ?? 0) - (b.dueAt ?? 0));
+    payments.sort((a, b) => (b.at ?? 0) - (a.at ?? 0) || (b.height ?? 0) - (a.height ?? 0));
+    return {
+      network: this.network,
+      counts,
+      subscriptions: subs.length,
+      receivedZat,
+      runRateZat,
+      daily,
+      plans: [...this.plans.values()].map((p) => ({ id: p.id, name: p.name, amountZat: p.amountZat, periodSec: p.periodSec, ...(perPlan.get(p.id) ?? { subscribers: 0, receivedZat: 0 }) })),
+      upcoming: upcoming.slice(0, 12),
+      attention,
+      payments: payments.slice(0, 40),
+    };
   }
 }
 

@@ -55,12 +55,19 @@ test("offer, subscribe and fetch a signed invoice over HTTP", async () => {
   });
 });
 
-test("the dashboard and cancel need the admin token", async () => {
+test("the dashboard page carries no data; its API and cancel need the admin token", async () => {
   await withServer(async (base) => {
-    assert.equal((await fetch(`${base}/`)).status, 401);
-    const ok = await fetch(`${base}/`, { headers: { authorization: "Bearer admin-token-123" } });
-    assert.equal(ok.status, 200);
-    assert.match(await ok.text(), /This server cannot spend/);
-    assert.equal((await fetch(`${base}/subscriptions/x/cancel`, { method: "POST" })).status, 404);
+    const page = await fetch(`${base}/admin`);
+    assert.equal(page.status, 200);
+    assert.match(await page.text(), /cannot spend/);
+    assert.equal((await fetch(`${base}/admin/api/overview`)).status, 401);
+    const auth = { authorization: "Bearer admin-token-123" };
+    const ov = await fetch(`${base}/admin/api/overview`, { headers: auth });
+    assert.equal(ov.status, 200);
+    const o = await ov.json();
+    assert.equal(o.daily.length, 14);
+    assert.equal(o.plans[0].every, "30 days");
+    assert.equal((await fetch(`${base}/admin/api/cancel`, { method: "POST", body: "{}" })).status, 401);
+    assert.equal((await fetch(`${base}/admin/api/cancel`, { method: "POST", headers: auth, body: JSON.stringify({ mandateId: "nope" }) })).status, 404);
   });
 });

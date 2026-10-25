@@ -24,6 +24,7 @@ import {
 import { readReceived } from "./scan.ts";
 import { buildReport, fetchTxRpc, renderMarkdown, type Payment, type TxView } from "./proof.ts";
 import { merchantServer } from "./server.ts";
+import { EventLog } from "./events.ts";
 import type { Invoice, Mandate, Network } from "./types.ts";
 
 const now = () => Math.floor(Date.now() / 1000);
@@ -324,6 +325,7 @@ async function merchantCmd(sub: string, args: string[]): Promise<void> {
     connection: cfg.wallet.connection,
   });
 
+  const events = new EventLog();
   const merchant = new Merchant({
     network: cfg.network,
     keys,
@@ -332,31 +334,53 @@ async function merchantCmd(sub: string, args: string[]): Promise<void> {
     newAddress: () => wallet.newAddress(),
     onEvent: (e) => {
       console.log(`${new Date(e.at * 1000).toISOString()} ${e.type} ${e.mandateId.slice(0, 12)}${e.cycle ? ` cycle ${e.cycle}` : ""}`);
+      const logged = events.push(e);
       if (!cfg.webhookUrl) return;
       const { body, signature } = signWebhook(e, secrets.webhookSecret);
-      fetch(cfg.webhookUrl, { method: "POST", body, headers: { "content-type": "application/json", "cadence-signature": signature } }).catch(
-        (err) => console.error(`webhook failed: ${(err as Error).message}`),
-      );
+      fetch(cfg.webhookUrl, {
+        method: "POST",
+        body,
+        headers: { "content-type": "application/json", "cadence-signature": signature },
+        signal: AbortSignal.timeout(15_000),
+      })
+        .then((r) => {
+          logged.webhook = { status: r.ok ? "sent" : "failed", code: r.status };
+        })
+        .catch((err) => {
+          logged.webhook = { status: "failed", error: (err as Error).message };
+          console.error(`webhook failed: ${(err as Error).message}`);
+        });
     },
   });
 
+  const health = { lastSyncAt: null as number | null, lastSyncError: null as string | null };
   const reconcile = async () => {
-    await wallet.sync();
-    if (cfg.fetchMemos) await wallet.enhance();
-    merchant.reconcile(readReceived(join(cfg.wallet.walletDir, "data.sqlite")), now());
+    try {
+      await wallet.sync();
+      if (cfg.fetchMemos) await wallet.enhance();
+      merchant.reconcile(readReceived(join(cfg.wallet.walletDir, "data.sqlite")), now());
+      health.lastSyncAt = now();
+      health.lastSyncError = null;
+    } catch (e) {
+      health.lastSyncError = (e as Error).message.split("\n")[0]!;
+      console.error(`sync failed: ${health.lastSyncError}`);
+    }
   };
-  setInterval(() => void reconcile().catch((e) => console.error(`sync failed: ${(e as Error).message}`)), (cfg.syncEverySec ?? 60) * 1000);
-  void reconcile().catch((e) => console.error(`sync failed: ${(e as Error).message}`));
+  setInterval(() => void reconcile(), (cfg.syncEverySec ?? 60) * 1000);
+  void reconcile();
 
   merchantServer(merchant, {
     adminToken: secrets.adminToken,
     publicUrl: cfg.publicUrl,
     appUrl: cfg.cadenceAppUrl,
     merchantName: cfg.name,
+    events,
+    webhookConfigured: Boolean(cfg.webhookUrl),
+    health: () => ({ ...health }),
   }).listen(cfg.port, "127.0.0.1", () => {
     console.log(`Cadence merchant on http://127.0.0.1:${cfg.port}  (network ${cfg.network})`);
     console.log(`Checkout: ${cfg.plans.map((p) => `http://127.0.0.1:${cfg.port}/checkout/${p.id}`).join("  ")}`);
-    console.log(`Dashboard needs: Authorization: Bearer <adminToken from ${secretsPath}>`);
+    console.log(`Dashboard (keep this link private): http://127.0.0.1:${cfg.port}/admin#t=${secrets.adminToken}`);
   });
 }
 

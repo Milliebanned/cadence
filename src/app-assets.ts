@@ -124,6 +124,8 @@ p{margin:0}.muted{color:var(--muted)}.small{font-size:13px}
 .btn.primary{background:var(--accent);border-color:var(--accent);color:var(--accent-ink)}.btn.primary:hover{filter:brightness(1.05)}
 .btn.danger{color:var(--bad);border-color:var(--bad-bg)}.btn.danger.confirm{background:var(--bad);color:#fff;border-color:var(--bad)}
 .btn[disabled]{opacity:.55;cursor:default}
+.group{font-size:14px;color:var(--muted);margin:14px 0 0;font-weight:600}
+.card.done{opacity:.72}.card.done .meter{display:none}
 .empty{padding:32px 20px;text-align:center;color:var(--muted);border:1px dashed var(--line);border-radius:var(--radius)}
 .tabs{display:flex;gap:4px;background:var(--soft);padding:4px;border-radius:10px;margin-bottom:14px}
 .tab{flex:1;font:inherit;font-size:13px;font-weight:550;border:0;background:none;color:var(--muted);padding:7px;border-radius:7px;cursor:pointer}
@@ -250,8 +252,13 @@ export const APP_JS = `"use strict";
     $("balance").textContent = state.balance ? state.balance.shielded + " ZEC" : state.balanceError ? "unavailable" : "…";
     $("balance").title = state.balanceError || "";
     const subs = $("subs");
-    subs.replaceChildren(...(state.subscriptions.length ? state.subscriptions.map(subCard)
-      : [h("div", { class: "empty" }, "No subscriptions yet. Paste a merchant's subscription link, or set up autopay to any shielded address.")]));
+    const FINISHED = new Set(["complete", "revoked", "expired"]);
+    const current = state.subscriptions.filter((x) => !FINISHED.has(x.status));
+    const finished = state.subscriptions.filter((x) => FINISHED.has(x.status));
+    const nodes = current.length ? current.map(subCard)
+      : [h("div", { class: "empty" }, "No running subscriptions. Paste a merchant's subscription link, or set up autopay to any shielded address.")];
+    if (finished.length) nodes.push(h("h2", { class: "group" }, "Finished (" + finished.length + ")"), ...finished.map((x) => { const c = subCard(x); c.classList.add("done"); return c; }));
+    subs.replaceChildren(...nodes);
     const act = $("activity");
     act.replaceChildren(...(state.activity.length ? state.activity.map(activityItem) : [h("li", {}, h("span", {}), h("div", { class: "muted" }, "Nothing yet."))]));
   }

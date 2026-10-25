@@ -128,3 +128,21 @@ test("memo and txid decoding", () => {
   assert.equal(decodeMemo(Buffer.from([0xf6, ...Buffer.alloc(511)])), null, "empty memo");
   assert.equal(displayTxid(Uint8Array.from([1, 2, 3])), "030201");
 });
+
+test("overview: counts, run rate, upcoming, attention and daily revenue", async () => {
+  const { m, mandate } = setup();
+  m.register(mandate, T0);
+  const inv = await m.invoice(mandate.id, 1, T0 + 1);
+  m.reconcile([paymentFor(inv.address, 5_000_000, inv.memo)], T0 + 100);
+  const o = m.overview(T0 + 200);
+  assert.equal(o.subscriptions, 1);
+  assert.equal(o.counts.active, 1);
+  assert.equal(o.receivedZat, 5_000_000);
+  assert.equal(o.runRateZat, 5_000_000, "a 30-day plan's run rate equals its price");
+  assert.equal(o.upcoming[0]!.dueAt, T0 + 30 * DAY);
+  assert.equal(o.daily.at(-1)!.zat, 5_000_000);
+  assert.equal(o.payments[0]!.txid, "f".repeat(64));
+  const later = m.overview(T0 + 34 * DAY);
+  assert.equal(later.counts.lapsed, 1);
+  assert.equal(later.attention.length, 1);
+});

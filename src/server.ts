@@ -3,6 +3,8 @@ import { timingSafeEqual } from "node:crypto";
 import { randomBytes } from "node:crypto";
 import type { Merchant } from "./merchant.ts";
 import { CHECKOUT_JS, checkoutHtml } from "./checkout.ts";
+import { ADMIN_HTML, ADMIN_JS } from "./admin-assets.ts";
+import type { EventLog } from "./events.ts";
 import type { Mandate } from "./types.ts";
 
 const MAX_BODY = 16 * 1024;
@@ -48,46 +50,6 @@ function adminOk(req: IncomingMessage, token: string): boolean {
   return given.length === want.length && timingSafeEqual(given, want);
 }
 
-function esc(s: string): string {
-  return s.replace(/[&<>"']/g, (c) => `&#${c.charCodeAt(0)};`);
-}
-
-const ZEC = (zat: number) => (zat / 1e8).toFixed(8).replace(/0+$/, "").replace(/\.$/, "");
-
-export function dashboardHtml(merchant: Merchant, now: number): string {
-  const rows = merchant
-    .subscriptions()
-    .map((s) => {
-      const st = merchant.status(s.mandate.id, now);
-      const plan = merchant.plans.get(s.mandate.planId);
-      const due = st.nextDueAt ? new Date(st.nextDueAt * 1000).toISOString().slice(0, 16).replace("T", " ") : "—";
-      return `<tr><td><code>${esc(s.mandate.id.slice(0, 12))}</code></td><td>${esc(plan?.name ?? s.mandate.planId)}</td>
-<td>${ZEC(s.mandate.amountZat)} ZEC</td><td>${st.cyclesPaid} / ${s.mandate.maxCycles}</td><td>${due}</td><td class="${st.status}">${st.status}</td></tr>`;
-    })
-    .join("\n");
-  const revenue = merchant
-    .subscriptions()
-    .flatMap((s) => Object.values(s.invoices))
-    .reduce((sum, i) => sum + (i.paid?.valueZat ?? 0), 0);
-  return `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Cadence merchant</title>
-<style>
-:root{--bg:#fbfaf7;--fg:#1c1b19;--muted:#6b675f;--line:#e6e2d9;--ok:#1f7a4d;--warn:#a66300;--bad:#b3261e}
-@media (prefers-color-scheme:dark){:root{--bg:#141413;--fg:#ecebe6;--muted:#9c978d;--line:#2d2b27;--ok:#5cc28f;--warn:#e0a24a;--bad:#ef6b62}}
-body{background:var(--bg);color:var(--fg);font:15px/1.5 ui-sans-serif,system-ui,sans-serif;margin:0;padding:24px 16px;max-width:960px;margin:auto}
-h1{font-size:20px;margin:0 0 4px}p{color:var(--muted);margin:0 0 20px}
-table{width:100%;border-collapse:collapse;font-variant-numeric:tabular-nums}th,td{text-align:left;padding:8px 6px;border-bottom:1px solid var(--line)}
-th{color:var(--muted);font-weight:500;font-size:13px}.active,.complete{color:var(--ok)}.late{color:var(--warn)}.lapsed,.cancelled{color:var(--bad)}
-.k{display:flex;gap:24px;margin:0 0 20px}.k div{font-size:13px;color:var(--muted)}.k b{display:block;font-size:20px;color:var(--fg)}
-</style></head><body>
-<h1>Cadence · merchant</h1>
-<p>Payments are read with a viewing key. This server cannot spend.</p>
-<div class="k"><div><b>${merchant.subscriptions().length}</b>subscriptions</div><div><b>${ZEC(revenue)} ZEC</b>received</div><div><b>${esc(merchant.network)}</b>network</div></div>
-<table><thead><tr><th>Mandate</th><th>Plan</th><th>Amount</th><th>Cycles paid</th><th>Next due (UTC)</th><th>Status</th></tr></thead>
-<tbody>${rows || '<tr><td colspan="6">No subscriptions yet.</td></tr>'}</tbody></table>
-</body></html>`;
-}
-
 /** Public routes: offer, register a mandate, fetch an invoice. Dashboard and cancel need the admin token. */
 export interface MerchantServerOptions {
   adminToken: string;
@@ -97,6 +59,15 @@ export interface MerchantServerOptions {
   /** where the customer's Cadence app listens; the checkout button opens it */
   appUrl?: string;
   merchantName?: string;
+  events?: EventLog;
+  webhookConfigured?: boolean;
+  health?: () => { lastSyncAt: number | null; lastSyncError: string | null };
+}
+
+function every(sec: number): string {
+  const units: Array<[number, string]> = [[86_400, "day"], [3600, "hour"], [60, "minute"]];
+  for (const [n, name] of units) if (sec % n === 0) return sec === n ? name : `${sec / n} ${name}s`;
+  return `${sec}s`;
 }
 
 export function merchantServer(merchant: Merchant, opts: MerchantServerOptions): Server {
@@ -144,17 +115,31 @@ export function merchantServer(merchant: Merchant, opts: MerchantServerOptions):
         }
       }
 
-      if (!adminOk(req, opts.adminToken)) {
-        if (req.method === "GET" && parts.length === 0) {
-          res.writeHead(401, { "www-authenticate": "Bearer" });
-          return res.end("admin token required");
-        }
-        throw new HttpError(404, "not found");
+      // The dashboard page and script hold no data; everything under /admin/api needs the admin token.
+      if (req.method === "GET" && (url.pathname === "/" || url.pathname === "/admin")) return send(res, 200, ADMIN_HTML, "text/html");
+      if (req.method === "GET" && url.pathname === "/admin.js") return send(res, 200, ADMIN_JS, "text/javascript");
+
+      if (!adminOk(req, opts.adminToken)) throw new HttpError(url.pathname.startsWith("/admin/api/") ? 401 : 404, url.pathname.startsWith("/admin/api/") ? "admin token required" : "not found");
+      if (req.method === "GET" && url.pathname === "/admin/api/overview") {
+        const o = merchant.overview(now());
+        return send(res, 200, {
+          ...o,
+          now: now(),
+          merchantName,
+          plans: o.plans.map((p) => ({ ...p, every: every(p.periodSec) })),
+          events: opts.events?.list(50) ?? [],
+          webhookConfigured: opts.webhookConfigured ?? false,
+          health: opts.health?.() ?? null,
+        });
       }
-      if (req.method === "GET" && parts.length === 0) return send(res, 200, dashboardHtml(merchant, now()), "text/html");
-      if (req.method === "POST" && parts[0] === "subscriptions" && parts[2] === "cancel" && parts.length === 3) {
-        merchant.cancel(parts[1]!, now());
-        return send(res, 200, merchant.status(parts[1]!, now()));
+      if (req.method === "POST" && url.pathname === "/admin/api/cancel") {
+        const body = (await readJson(req)) as { mandateId?: string };
+        try {
+          merchant.cancel(String(body.mandateId ?? ""), now());
+        } catch (e) {
+          throw new HttpError(404, (e as Error).message);
+        }
+        return send(res, 200, merchant.status(String(body.mandateId), now()));
       }
       throw new HttpError(404, "not found");
     } catch (e) {
