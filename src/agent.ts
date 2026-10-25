@@ -21,6 +21,9 @@ export type TickResult =
   | { mandateId: string; action: "failed"; cycle: number; error: string }
   | { mandateId: string; action: "idle"; reason: string };
 
+/** How long a started payment may stay unresolved before the agent checks the wallet's records. */
+export const PENDING_RECOVERY_SEC = 120;
+
 export class Agent {
   private readonly storePath: string;
   private readonly audit: AuditLog;
@@ -115,6 +118,28 @@ export class Agent {
     now: number,
     rand?: (maxExclusive: number) => number,
   ): Promise<TickResult> {
+    if (state.pending && this.wallet.findSent && now - state.pending.startedAt >= PENDING_RECOVERY_SEC) {
+      // Crash recovery: the wallet records a transaction before broadcasting it, so its records
+      // say whether this payment ever left.
+      const p = state.pending;
+      const amountZat = mandate.amountZat;
+      let txid: string | null;
+      try {
+        txid = await this.wallet.findSent(p.address, amountZat, p.startedAt);
+      } catch (e) {
+        return { mandateId, action: "failed", cycle: p.cycle, error: (e as Error).message };
+      }
+      if (txid) {
+        state.cyclesPaid = p.cycle;
+        state.totalPaidZat += amountZat;
+        state.usedAddresses.push(p.address);
+        state.lastPaidAt = now;
+        if (this.wallet.txStatus) state.unconfirmed = { cycle: p.cycle, txid, address: p.address, amountZat };
+      }
+      state.pending = null;
+      this.save();
+      this.audit.append("recovered", { mandateId, cycle: p.cycle, outcome: txid ? "paid" : "not-paid", txid }, now);
+    }
     if (state.pending) return { mandateId, action: "blocked", reason: "a send is pending confirmation" };
 
     // A broadcast payment is only paid once it is mined. Until then nothing else is sent; if it

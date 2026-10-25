@@ -1,6 +1,6 @@
 import { createServer, type IncomingMessage, type Server, type ServerResponse } from "node:http";
 import { randomBytes, timingSafeEqual } from "node:crypto";
-import type { Agent, TickResult } from "./agent.ts";
+import { PENDING_RECOVERY_SEC, type Agent, type TickResult } from "./agent.ts";
 import { AuditLog } from "./audit.ts";
 import type { Balance } from "./devtool.ts";
 import { dueAtForCycle } from "./mandate.ts";
@@ -20,6 +20,7 @@ import { APP_CSS, APP_HTML, APP_JS } from "./app-assets.ts";
 
 const DAY = 86_400;
 const PREVIEW_TTL_SEC = 600;
+const STUCK_SEC = PENDING_RECOVERY_SEC + 60;
 
 interface Preview {
   mandate: Mandate;
@@ -138,7 +139,8 @@ export function subscriberApp(opts: AppOptions): { server: Server; stop: () => v
     if (s.revoked) status = "revoked";
     else if (done) status = "complete";
     else if (expired) status = "expired";
-    else if (s.pending) status = "attention";
+    // A send in flight is normal for a few seconds; only a send stuck past automatic recovery needs a person.
+    else if (s.pending && t - s.pending.startedAt > STUCK_SEC) status = "attention";
     else if (last && (last.action === "refused" || last.action === "failed")) status = "attention";
     else status = "active";
     return {
@@ -157,7 +159,8 @@ export function subscriberApp(opts: AppOptions): { server: Server; stop: () => v
       nextSendAt: done || s.revoked ? null : s.sendAt[String(nextCycle)] ?? null,
       expiresAt: m.expiresAt,
       status,
-      pending: s.pending,
+      pending: s.pending && t - s.pending.startedAt > STUCK_SEC ? s.pending : null,
+      sending: s.pending ? s.pending.cycle : null,
       confirming: s.unconfirmed?.cycle ?? null,
       lastResult: last
         ? {

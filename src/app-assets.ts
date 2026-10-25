@@ -124,7 +124,7 @@ export const APP_CSS = `${THEME_CSS}
 .hero{display:grid;grid-template-columns:2fr 1fr 1fr 1fr;gap:14px;margin-bottom:30px}
 @media (max-width:1000px){.hero{grid-template-columns:1fr 1fr}.hero .next{grid-column:1/-1}}
 .stat{display:flex;flex-direction:column;gap:2px}.stat strong{font-size:26px;letter-spacing:-.02em;margin-top:4px}
-.next{display:flex;align-items:center;gap:16px;background:linear-gradient(135deg,rgba(232,180,76,.18),rgba(232,180,76,.03));border-color:rgba(232,180,76,.3)}
+.next{display:flex;align-items:center;gap:16px;background:linear-gradient(135deg,rgba(127,180,255,.18),rgba(127,180,255,.03));border-color:rgba(127,180,255,.3)}
 .next .avatar{width:50px;height:50px;font-size:20px;border-radius:15px}
 .next-main{flex:1;min-width:0}.next-main h2{font-size:18px;margin-top:2px}
 .next-when{text-align:right}.next-when strong{display:block;font-size:26px;letter-spacing:-.02em}
@@ -181,8 +181,8 @@ export const APP_CSS = `${THEME_CSS}
 .privacy-row{display:flex;gap:12px}.privacy-row .ico{color:var(--gold);margin-top:2px}
 .privacy strong{font-size:14px}
 
-.sheet{position:fixed;inset:0;background:rgba(4,3,5,.7);backdrop-filter:blur(8px);display:flex;align-items:center;justify-content:center;padding:16px;z-index:20}
-.sheet-card{background:linear-gradient(180deg,#1c1914,#111009);border:1px solid var(--line-2);border-radius:26px;max-width:560px;width:100%;padding:28px;box-shadow:var(--shadow-l)}
+.sheet{position:fixed;inset:0;background:rgba(2,6,18,.72);backdrop-filter:blur(8px);display:flex;align-items:center;justify-content:center;padding:16px;z-index:20}
+.sheet-card{background:linear-gradient(180deg,#0e2150,#071431);border:1px solid var(--line-2);border-radius:26px;max-width:560px;width:100%;padding:28px;box-shadow:var(--shadow-l)}
 .sheet-who{display:flex;gap:14px;align-items:center;margin-top:12px}.sheet-who h2{font-size:22px}
 .sheet-amount{display:flex;align-items:baseline;gap:10px;margin:22px 0 18px;padding:16px 18px;border-radius:14px;background:var(--soft);flex-wrap:wrap}
 .sheet-amount strong{font-size:34px;letter-spacing:-.025em}
@@ -291,7 +291,8 @@ export const APP_JS = `"use strict";
           h("span", { style: "width:" + Math.min(100, s.capUsedPct) + "%" }))),
       note,
       h("div", { class: "sub-foot" },
-        running && s.confirming ? h("span", { class: "sub-next", icon: "clock" }, "Payment " + s.confirming + " confirming on chain…")
+        running && s.sending && !s.pending ? h("span", { class: "sub-next", icon: "clock" }, "Sending payment " + s.sending + "…")
+          : running && s.confirming ? h("span", { class: "sub-next", icon: "clock" }, "Payment " + s.confirming + " confirming on chain…")
           : running && next ? h("span", { class: "sub-next", icon: "clock" }, next <= nowSec() ? "Paying now" : "Next payment " + rel(next)) : h("span", { class: "muted small" }, s.status === "complete" ? "All " + s.maxCycles + " payments made" : stLabel),
         h("div", { class: "sub-actions" }, actions)),
       details);
@@ -307,6 +308,7 @@ export const APP_JS = `"use strict";
     "invoice-unavailable": (e) => "No invoice from " + e.label + ": " + e.detail,
     revoke: (e) => "Revoked " + e.label,
     confirmed: (e) => "Confirmed on chain · " + e.label + " payment " + e.cycle,
+    recovered: (e) => "Checked payment " + e.cycle + " of " + e.label + " after a restart",
     "expired-unmined": (e) => "Payment " + e.cycle + " of " + e.label + " never reached the chain; it will be sent again",
     "resolve-pending": (e) => "Resolved payment " + e.cycle + " · " + e.label,
   };

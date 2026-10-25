@@ -2,22 +2,25 @@
  *  assets from a third party would tell that party who opened the page. */
 export const THEME_CSS = `
 :root{
-  --paper:#08070a;--surface:rgba(255,255,255,.035);--raised:#16140f;--ink:#f6f2e9;--ink-2:#cfc8b9;--muted:#8d8678;--faint:#5d584f;
-  --line:rgba(255,255,255,.08);--line-2:rgba(255,255,255,.14);--soft:rgba(255,255,255,.05);
-  --gold:#e8b44c;--gold-2:#f7d58e;--gold-deep:#b47d1d;--gold-soft:rgba(232,180,76,.12);--gold-ink:#f7d58e;
-  --gold-grad:linear-gradient(135deg,#f7d58e 0%,#e8b44c 42%,#b47d1d 100%);
-  --band:rgba(8,7,10,.7);--band-ink:#f6f2e9;--band-muted:#8d8678;--band-line:rgba(255,255,255,.08);
-  --ok:#5fd39a;--ok-soft:rgba(95,211,154,.12);--warn:#f0b866;--warn-soft:rgba(240,184,102,.12);--bad:#f08a7e;--bad-soft:rgba(240,138,126,.12);
-  --r-s:10px;--r:14px;--r-l:22px;
-  --shadow:0 30px 80px -40px rgba(0,0,0,.9),inset 0 1px 0 rgba(255,255,255,.05);
-  --shadow-l:0 50px 120px -30px rgba(0,0,0,.95),inset 0 1px 0 rgba(255,255,255,.06);
+  --paper:#040b1d;--surface:rgba(185,210,255,.035);--raised:#0b1a3b;--ink:#f4f8ff;--ink-2:#c3d1ea;--muted:#7a8db0;--faint:#4a5c82;
+  --line:rgba(185,210,255,.11);--line-2:rgba(185,210,255,.2);--soft:rgba(185,210,255,.06);
+  --gold:#7fb4ff;--gold-2:#b9d7ff;--gold-deep:#2a63d4;--gold-soft:rgba(127,180,255,.12);--gold-ink:#d9ebff;
+  --gold-grad:linear-gradient(135deg,#d9ebff 0%,#7fb4ff 45%,#2a63d4 100%);
+  --band:rgba(4,11,29,.72);--band-ink:#f4f8ff;--band-muted:#7a8db0;--band-line:rgba(185,210,255,.1);
+  --ok:#6ff0b2;--ok-soft:rgba(111,240,178,.12);--warn:#f5c26b;--warn-soft:rgba(245,194,107,.12);--bad:#ff8f86;--bad-soft:rgba(255,143,134,.12);
+  --r-s:8px;--r:12px;--r-l:18px;
+  --shadow:0 30px 80px -40px rgba(0,0,0,.9),inset 0 1px 0 rgba(185,210,255,.05);
+  --shadow-l:0 50px 120px -30px rgba(0,0,0,.95),inset 0 1px 0 rgba(185,210,255,.07);
   --font:-apple-system,BlinkMacSystemFont,"SF Pro Display","SF Pro Text","Segoe UI",Inter,Roboto,"Helvetica Neue",Arial,sans-serif;
   --mono:ui-monospace,"SF Mono",SFMono-Regular,Menlo,Consolas,monospace;
   color-scheme:dark;
 }
 *{box-sizing:border-box}
 html{background:var(--paper)}
-body{margin:0;color:var(--ink);min-height:100vh;background:radial-gradient(1100px 520px at 78% -10%,rgba(232,180,76,.16),transparent 60%),radial-gradient(800px 420px at 0% 0%,rgba(232,180,76,.05),transparent 60%),var(--paper);background-attachment:fixed}
+body{margin:0;color:var(--ink);min-height:100vh;background:radial-gradient(1100px 560px at 82% -12%,rgba(42,99,212,.38),transparent 62%),radial-gradient(800px 420px at 0% 0%,rgba(42,99,212,.10),transparent 60%),var(--paper);background-attachment:fixed}
+/* the halftone screen from the landing page, faint, glowing from the top corner */
+body::before{content:"";position:fixed;inset:0;pointer-events:none;z-index:0;background-image:radial-gradient(circle,rgba(150,195,255,.55) 1px,transparent 1.55px);background-size:7px 7px;opacity:.22;-webkit-mask-image:radial-gradient(900px 520px at 88% -8%,#000,transparent 70%);mask-image:radial-gradient(900px 520px at 88% -8%,#000,transparent 70%)}
+body>*{position:relative;z-index:1}
 body{font:15px/1.55 var(--font);-webkit-font-smoothing:antialiased;text-rendering:optimizeLegibility;font-feature-settings:"ss01","cv11"}
 h1,h2,h3{margin:0;letter-spacing:-.03em;font-weight:660;color:var(--ink)}
 p{margin:0}
@@ -56,11 +59,11 @@ a{color:inherit;text-underline-offset:3px}
 .btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;font:inherit;font-size:14px;font-weight:600;line-height:1;padding:11px 17px;border-radius:12px;border:1px solid var(--line-2);background:var(--soft);color:var(--ink);cursor:pointer;text-decoration:none;transition:background .2s,border-color .2s,transform .2s,box-shadow .2s}
 .btn:hover{background:rgba(255,255,255,.08);border-color:rgba(255,255,255,.22)}.btn:active{transform:translateY(1px)}
 .btn svg{width:16px;height:16px}
-.btn.primary,.btn.gold{background:var(--gold-grad);border-color:transparent;color:#1b1203;box-shadow:0 10px 36px -12px rgba(232,180,76,.7),inset 0 1px 0 rgba(255,255,255,.45)}
-.btn.primary:hover,.btn.gold:hover{box-shadow:0 16px 46px -12px rgba(232,180,76,.9),inset 0 1px 0 rgba(255,255,255,.5);transform:translateY(-1px)}
+.btn.primary,.btn.gold{background:#fff;border-color:#fff;color:#081633;border-radius:4px;box-shadow:0 12px 40px -18px rgba(127,180,255,.8)}
+.btn.primary:hover,.btn.gold:hover{background:#d9ebff;border-color:#d9ebff;transform:translateY(-1px)}
 .btn.ghost{background:transparent;border-color:transparent;color:var(--muted)}.btn.ghost:hover{background:var(--soft);color:var(--ink)}
 .btn.danger{color:var(--bad);border-color:var(--line-2)}.btn.danger:hover{background:var(--bad-soft);border-color:var(--bad-soft)}
-.btn.danger.armed{background:var(--bad);border-color:var(--bad);color:#1a0806}
+.btn.danger.armed{background:var(--bad);border-color:var(--bad);color:#2a0b08}
 .btn.lg{font-size:15.5px;padding:14px 20px;border-radius:12px}
 .btn.block{width:100%}
 .btn[disabled]{opacity:.5;cursor:default;transform:none}
@@ -85,17 +88,17 @@ td.r,th.r{text-align:right}
 
 /* meter */
 .meter{height:6px;border-radius:999px;background:rgba(255,255,255,.07);overflow:hidden}
-.meter>span{display:block;height:100%;background:var(--gold-grad);border-radius:999px;box-shadow:0 0 14px rgba(232,180,76,.55);transition:width .6s ease}
+.meter>span{display:block;height:100%;background:linear-gradient(90deg,#2a63d4,#7fb4ff,#d9ebff);border-radius:999px;box-shadow:0 0 14px rgba(127,180,255,.6);transition:width .6s ease}
 
 /* icon + avatar */
 .ico{width:18px;height:18px;flex:none}
-.avatar{width:42px;height:42px;border-radius:13px;display:inline-flex;align-items:center;justify-content:center;font-weight:750;font-size:17px;background:var(--gold-grad);color:#1b1203;box-shadow:inset 0 1px 0 rgba(255,255,255,.4);flex:none}
+.avatar{width:42px;height:42px;border-radius:13px;display:inline-flex;align-items:center;justify-content:center;font-weight:750;font-size:17px;background:linear-gradient(145deg,#d9ebff,#7fb4ff 55%,#2a63d4);color:#06142f;box-shadow:inset 0 1px 0 rgba(255,255,255,.5);flex:none}
 .empty{border:1px dashed var(--line-2);border-radius:var(--r-l);padding:36px 24px;text-align:center;color:var(--muted)}
 @media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
 `;
 
 /** Cadence mark: a ring with a gap, the rhythm of a recurring payment. */
-export const LOGO_SVG = `<svg width="24" height="24" viewBox="0 0 24 24" fill="none" aria-hidden="true"><circle cx="12" cy="12" r="9.25" stroke="currentColor" stroke-opacity=".22" stroke-width="2.5"/><path d="M12 2.75a9.25 9.25 0 1 1-8.01 4.63" stroke="#e3ae4a" stroke-width="2.5" stroke-linecap="round"/><circle cx="12" cy="12" r="2.6" fill="#e3ae4a"/></svg>`;
+export const LOGO_SVG = `<svg width="24" height="24" viewBox="0 0 24 24" fill="none" aria-hidden="true"><circle cx="12" cy="12" r="9.25" stroke="currentColor" stroke-opacity=".22" stroke-width="2.5"/><path d="M12 2.75a9.25 9.25 0 1 1-8.01 4.63" stroke="#7fb4ff" stroke-width="2.5" stroke-linecap="round"/><circle cx="12" cy="12" r="2.6" fill="#7fb4ff"/></svg>`;
 
 const ic = (d: string) => `<svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${d}</svg>`;
 export const ICONS = {

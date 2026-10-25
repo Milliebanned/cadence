@@ -137,6 +137,26 @@ export class DevtoolWallet implements WalletAdapter {
     }
   }
 
+  async findSent(address: string, amountZat: number, sinceSec: number): Promise<string | null> {
+    await this.sync();
+    const db = new DatabaseSync(join(this.o.walletDir, "data.sqlite"), { readOnly: true });
+    try {
+      // Sent rows carry the recipient address. Only consider transactions created after the
+      // payment started, so an older payment to a reused address is never mistaken for it.
+      const row = db
+        .prepare(
+          `SELECT o.txid FROM v_tx_outputs o JOIN transactions t ON t.txid = o.txid
+            WHERE o.from_account_uuid IS NOT NULL AND o.to_address = ? AND o.value = ?
+              AND (t.created IS NULL OR unixepoch(t.created) >= ?)
+            ORDER BY t.id_tx DESC LIMIT 1`,
+        )
+        .get(address, amountZat, sinceSec - 5) as { txid: Uint8Array } | undefined;
+      return row ? Buffer.from(row.txid).reverse().toString("hex") : null;
+    } finally {
+      db.close();
+    }
+  }
+
   async newAddress(): Promise<string> {
     const out = await this.exec(["wallet", "-w", this.o.walletDir, "generate-address"], 60_000);
     const addr = /Address:\s*(\S+)/.exec(out)?.[1];

@@ -11,313 +11,249 @@ export interface HubLinks {
   proofCommand: string;
 }
 
-const MARK = `<svg width="28" height="28" viewBox="0 0 24 24" fill="none" aria-hidden="true"><defs><linearGradient id="mg" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#f7d58e"/><stop offset=".55" stop-color="#e6ad45"/><stop offset="1" stop-color="#b47d1d"/></linearGradient></defs><circle cx="12" cy="12" r="9.25" stroke="#fff" stroke-opacity=".14" stroke-width="2.4"/><path d="M12 2.75a9.25 9.25 0 1 1-8.01 4.63" stroke="url(#mg)" stroke-width="2.4" stroke-linecap="round"/><circle cx="12" cy="12" r="2.7" fill="url(#mg)"/></svg>`;
+/** Cadence mark: a ring broken by one gap, the beat of a recurring payment. */
+const MARK = `<svg class="mark" viewBox="0 0 32 32" fill="none" aria-hidden="true"><path d="M16 3.5a12.5 12.5 0 1 1-10.83 6.25" stroke="currentColor" stroke-width="3.4" stroke-linecap="round"/><circle cx="16" cy="16" r="4" fill="currentColor"/></svg>`;
 
-/** The demo's front page: a product landing page with live links into each part of the demo. */
+/** The demo's front page. The hero light is drawn live on a canvas as a halftone dot screen. */
 export function hubHtml(l: HubLinks): string {
   const vpn = l.checkoutUrls[0]!;
+  const out = (url: string) => `href="${esc(url)}" target="_blank" rel="noopener noreferrer"`;
   return `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <meta name="referrer" content="no-referrer"><meta name="color-scheme" content="dark">
 <title>Cadence · Private autopay for Zcash</title>
 <style>
 :root{
-  --bg:#08070a;--bg2:#0d0c10;--ink:#f6f2e9;--ink2:#cfc8b9;--muted:#8d8678;--faint:#5d584f;
-  --stroke:rgba(255,255,255,.08);--stroke2:rgba(255,255,255,.14);--glass:rgba(255,255,255,.035);
-  --gold:#e8b44c;--gold2:#f7d58e;--golddeep:#b47d1d;--ok:#5fd39a;
-  --gradient:linear-gradient(135deg,#f7d58e 0%,#e8b44c 42%,#b47d1d 100%);
+  --night:#040b1d;--navy:#071431;--deep:#0b1f4a;--blue:#2a63d4;--sky:#7fb4ff;--ice:#d9ebff;
+  --ink:#f4f8ff;--ink2:#b9c8e4;--muted:#7387ab;--faint:#41537a;
+  --line:rgba(185,210,255,.12);--line2:rgba(185,210,255,.22);--tab:rgba(10,28,66,.55);
   --sans:-apple-system,BlinkMacSystemFont,"SF Pro Display","SF Pro Text","Segoe UI",Inter,Roboto,"Helvetica Neue",Arial,sans-serif;
   --mono:ui-monospace,"SF Mono",SFMono-Regular,Menlo,Consolas,monospace;
 }
 *{box-sizing:border-box}
-html{background:var(--bg);scroll-behavior:smooth}
-body{margin:0;color:var(--ink);font:16px/1.6 var(--sans);-webkit-font-smoothing:antialiased;overflow-x:hidden;
-  background:
-    radial-gradient(1200px 620px at 72% -8%,rgba(232,180,76,.20),transparent 60%),
-    radial-gradient(900px 520px at 8% 4%,rgba(232,180,76,.07),transparent 60%),
-    var(--bg)}
+html{background:var(--night)}
+body{margin:0;color:var(--ink);font:16px/1.6 var(--sans);-webkit-font-smoothing:antialiased;overflow-x:hidden;background:var(--night)}
 a{color:inherit;text-decoration:none}
-.wrap{max-width:1200px;margin:0 auto;padding:0 32px}
-@media (max-width:720px){.wrap{padding:0 20px}}
-:focus-visible{outline:2px solid var(--gold);outline-offset:3px;border-radius:8px}
-.mono{font-family:var(--mono)}
-.gold{background:var(--gradient);-webkit-background-clip:text;background-clip:text;color:transparent}
+:focus-visible{outline:2px solid var(--sky);outline-offset:3px}
 .ico{width:18px;height:18px;flex:none}
+.mono{font-family:var(--mono)}
+.shell{max-width:1360px;margin:0 auto;padding:18px}
+@media (max-width:720px){.shell{padding:10px}}
 
-/* nav */
-nav{position:sticky;top:0;z-index:30;backdrop-filter:saturate(140%) blur(14px);background:rgba(8,7,10,.62);border-bottom:1px solid var(--stroke)}
-nav .wrap{display:flex;align-items:center;justify-content:space-between;height:66px}
-.brand{display:flex;align-items:center;gap:11px;font-weight:650;font-size:18px;letter-spacing:-.02em}
-.navlinks{display:flex;align-items:center;gap:30px;font-size:14px;color:var(--ink2)}
-.navlinks a:hover{color:var(--ink)}
-@media (max-width:860px){.navlinks .hide-s{display:none}}
-.live{display:inline-flex;align-items:center;gap:8px;font-size:12.5px;color:var(--ink2);padding:6px 12px;border-radius:999px;border:1px solid var(--stroke2);background:var(--glass)}
-.live i{width:7px;height:7px;border-radius:50%;background:var(--ok);box-shadow:0 0 0 0 rgba(95,211,154,.6);animation:ping 2s infinite}
-@keyframes ping{0%{box-shadow:0 0 0 0 rgba(95,211,154,.55)}80%,100%{box-shadow:0 0 0 9px rgba(95,211,154,0)}}
+/* halftone texture, the same dot screen as the hero, for the rest of the page */
+.dots{position:absolute;inset:0;pointer-events:none;background-image:radial-gradient(circle,rgba(160,200,255,.55) 1.05px,transparent 1.6px);background-size:7px 7px}
 
-/* buttons */
-.btn{display:inline-flex;align-items:center;gap:10px;font:600 15px/1 var(--sans);padding:15px 22px;border-radius:14px;border:1px solid var(--stroke2);color:var(--ink);background:var(--glass);transition:transform .2s,background .2s,border-color .2s,box-shadow .2s;cursor:pointer;white-space:nowrap}
-.btn:hover{background:rgba(255,255,255,.07);border-color:rgba(255,255,255,.24);transform:translateY(-1px)}
-.btn .ico{width:17px;height:17px}
-.btn.primary{background:var(--gradient);border-color:transparent;color:#1b1203;box-shadow:0 10px 40px -10px rgba(232,180,76,.65),inset 0 1px 0 rgba(255,255,255,.45)}
-.btn.primary:hover{box-shadow:0 16px 50px -12px rgba(232,180,76,.85),inset 0 1px 0 rgba(255,255,255,.5)}
-.btn.sm{padding:10px 16px;font-size:14px;border-radius:11px}
+/* ---------- hero ---------- */
+.hero{position:relative;min-height:min(880px,calc(100vh - 36px));border-radius:22px;overflow:hidden;background:radial-gradient(120% 90% at 85% 50%,#0d2a66 0%,#071431 45%,#040b1d 100%);isolation:isolate}
+#beam{position:absolute;inset:0;width:100%;height:100%;z-index:0;display:block}
+.hero-ui{position:relative;z-index:2;height:100%;min-height:inherit;display:grid;grid-template-columns:minmax(0,1fr);grid-template-rows:auto 1fr auto;padding:30px 34px 34px}
+@media (max-width:720px){.hero-ui{padding:20px 18px 22px}}
+.top{display:flex;align-items:flex-start;justify-content:space-between;gap:16px;min-width:0}
+.wordmark{display:flex;align-items:center;gap:14px;font-size:clamp(34px,4.6vw,58px);font-weight:450;letter-spacing:-.045em;line-height:1;color:#fff}
+.wordmark .mark{width:clamp(36px,4.4vw,54px);height:clamp(36px,4.4vw,54px);color:#fff}
+.nav{display:flex;gap:2px;align-items:stretch}
+.nav a,.nav span.chain{display:flex;align-items:center;font-size:12.5px;color:var(--ink2);background:var(--tab);backdrop-filter:blur(10px);border:1px solid rgba(185,210,255,.07);padding:0 22px;height:40px;min-width:96px;transition:background .2s,color .2s}
+.nav a:hover{background:rgba(20,48,104,.7);color:#fff}
+.nav .chain{gap:8px}
+.nav .chain i{width:6px;height:6px;border-radius:50%;background:#6ff0b2;box-shadow:0 0 10px #6ff0b2}
+.nav .login{background:#fff;color:#081633;font-weight:550;gap:26px;justify-content:space-between;margin-left:6px;border-color:#fff}
+.nav .login:hover{background:var(--ice);color:#081633}
+@media (max-width:980px){.nav .hide{display:none}}
+@media (max-width:560px){.nav a.login{padding:0 14px;min-width:0;gap:10px}.nav .chain{display:none!important}.wordmark{font-size:30px;gap:10px}.wordmark .mark{width:30px;height:30px}.btn-w{min-width:0;width:100%}}
+.copy{align-self:end;max-width:560px;text-shadow:0 1px 18px rgba(4,11,29,.85)}
+.copy h1{margin:0;font-size:clamp(34px,4.3vw,58px);line-height:1.04;font-weight:500;letter-spacing:-.035em;color:#fff}
+.copy p{margin:20px 0 0;max-width:30em;color:var(--ink2);font-size:clamp(15px,1.25vw,17px);line-height:1.55}
+.cta{display:flex;align-items:center;gap:26px;margin-top:34px;flex-wrap:wrap}
+.btn-w{display:inline-flex;align-items:center;justify-content:space-between;gap:34px;height:52px;padding:0 20px 0 22px;background:#fff;color:#081633;font-weight:560;font-size:15px;border-radius:3px;transition:background .2s,transform .2s;min-width:220px}
+.btn-w:hover{background:var(--ice);transform:translateY(-1px)}
+.btn-w .ico{width:17px;height:17px}
+.note{display:inline-flex;align-items:center;gap:10px;color:var(--ink2);font-size:13.5px}
+.note::before{content:"";width:5px;height:5px;border-radius:50%;background:#fff}
+.legend{position:absolute;right:34px;bottom:34px;z-index:2;display:grid;gap:7px;font:12px var(--mono);color:var(--ink2);text-align:right;padding:14px 16px;background:rgba(4,11,29,.72);backdrop-filter:blur(8px);border:1px solid var(--line)}
+.legend b{color:#fff;font-weight:500}
+@media (max-width:900px){.legend{display:none}}
 
-/* hero */
-.hero{padding:96px 0 40px;position:relative}
-.hero-grid{display:grid;grid-template-columns:1.05fr .95fr;gap:56px;align-items:center}
-@media (max-width:1020px){.hero-grid{grid-template-columns:1fr;gap:64px}.hero{padding-top:64px}}
-.kicker{display:inline-flex;align-items:center;gap:10px;font-size:13px;color:var(--ink2);padding:7px 14px 7px 8px;border-radius:999px;border:1px solid var(--stroke2);background:var(--glass)}
-.kicker b{font-weight:650;color:#1b1203;background:var(--gradient);padding:3px 9px;border-radius:999px;font-size:11.5px;letter-spacing:.04em;text-transform:uppercase}
-h1{font-size:clamp(46px,6.6vw,88px);line-height:.98;letter-spacing:-.055em;font-weight:680;margin:26px 0 26px}
-.lead{font-size:clamp(17px,1.6vw,20px);line-height:1.6;color:var(--ink2);max-width:36em;margin:0}
-.ctas{display:flex;gap:14px;flex-wrap:wrap;margin-top:38px}
-.proof-row{display:flex;gap:26px;flex-wrap:wrap;margin-top:44px;color:var(--muted);font-size:13.5px}
-.proof-row span{display:inline-flex;align-items:center;gap:9px}.proof-row .ico{color:var(--gold)}
-
-/* hero product mock */
-.stage{position:relative;height:600px;perspective:1600px}
-@media (max-width:1020px){.stage{height:600px;max-width:560px;margin:0 auto;width:100%}}
-.glow{position:absolute;inset:8% 4% 10% 8%;background:radial-gradient(closest-side,rgba(232,180,76,.35),transparent);filter:blur(30px);z-index:0}
-.panel{position:absolute;border-radius:24px;background:linear-gradient(180deg,rgba(28,25,20,.92),rgba(16,14,12,.92));border:1px solid var(--stroke2);box-shadow:0 50px 120px -30px rgba(0,0,0,.9),0 0 0 1px rgba(255,255,255,.02) inset,inset 0 1px 0 rgba(255,255,255,.06);backdrop-filter:blur(10px)}
-.sheet{z-index:2;left:8%;right:0;top:0;padding:28px;transform:rotateY(-9deg) rotateX(5deg);transform-origin:left center;animation:float 9s ease-in-out infinite}
-@keyframes float{0%,100%{transform:rotateY(-9deg) rotateX(5deg) translateY(0)}50%{transform:rotateY(-7deg) rotateX(4deg) translateY(-10px)}}
-.eyebrow{font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:var(--muted);font-weight:650}
-.who{display:flex;align-items:center;gap:14px;margin-top:14px}
-.av{width:46px;height:46px;border-radius:14px;display:flex;align-items:center;justify-content:center;font-weight:750;font-size:18px;color:#1b1203;background:var(--gradient);box-shadow:inset 0 1px 0 rgba(255,255,255,.4)}
-.who h3{margin:0;font-size:21px;letter-spacing:-.02em}.who p{margin:2px 0 0;font:12.5px var(--mono);color:var(--muted)}
-.amt{margin:22px 0 18px;padding:18px 20px;border-radius:16px;background:rgba(255,255,255,.04);border:1px solid var(--stroke);display:flex;align-items:baseline;gap:10px}
-.amt strong{font-size:40px;letter-spacing:-.04em;font-weight:680}.amt span{color:var(--muted);font-size:14px}
-.cols{display:grid;grid-template-columns:1.2fr 1fr;gap:18px;font-size:13.5px}
-.cols ul{list-style:none;margin:10px 0 0;padding:0;display:grid;gap:9px;color:var(--ink2)}
-.cols li{display:flex;gap:8px;align-items:flex-start}.cols .ico{width:15px;height:15px;margin-top:3px}
-.yes .ico{color:var(--ok)}.no .ico{color:#f08a7e}
-.approve{margin-top:22px;display:flex;justify-content:flex-end;gap:10px}
-.approve .btn{padding:12px 18px;font-size:14px}
-.toast{z-index:4;right:-3%;top:-22px;width:292px;padding:14px 16px;border-radius:18px;display:flex;gap:13px;align-items:center;animation:toast 7s ease-in-out infinite}
-@media (max-width:560px){.toast{right:0;width:250px}}
-.toast .tick{width:38px;height:38px;border-radius:12px;background:rgba(95,211,154,.14);color:var(--ok);display:flex;align-items:center;justify-content:center;flex:none}
-.toast strong{display:block;font-size:14.5px}.toast span{font-size:12.5px;color:var(--muted)}
-@keyframes toast{0%,6%{opacity:.0;transform:translateY(-10px) scale(.97)}14%,80%{opacity:1;transform:none}92%,100%{opacity:0;transform:translateY(-6px)}}
-.chain{z-index:3;left:-2%;bottom:0;width:300px;padding:16px 18px;border-radius:18px;transform:rotate(-1.5deg)}
-@media (max-width:560px){.chain{left:0;width:250px}}
-.chain .row{display:flex;justify-content:space-between;font-size:12.5px;padding:6px 0;border-top:1px solid var(--stroke)}
-.chain .row:first-of-type{border-top:0;margin-top:8px}
-.chain .row span:last-child{font-family:var(--mono);color:var(--ok)}
-.chain .row.pub span:last-child{color:var(--ink2)}
-
-/* sections */
-section.block{padding:120px 0 0}
-.sec-head{max-width:760px;margin-bottom:56px}
-.sec-head .eyebrow{color:var(--gold)}
-.sec-head h2{font-size:clamp(34px,4.2vw,54px);line-height:1.05;letter-spacing:-.045em;margin:16px 0 18px;font-weight:660}
-.sec-head p{color:var(--ink2);font-size:18px;margin:0;max-width:40em}
+/* ---------- sections ---------- */
+section{position:relative;padding:130px 34px 0;max-width:1360px;margin:0 auto}
+@media (max-width:720px){section{padding:90px 18px 0}}
+.label{display:inline-flex;align-items:center;gap:10px;font:12px var(--mono);letter-spacing:.06em;text-transform:uppercase;color:var(--sky)}
+.label::before{content:"";width:18px;height:1px;background:var(--sky)}
+h2{margin:18px 0 0;font-size:clamp(32px,3.8vw,52px);line-height:1.06;font-weight:500;letter-spacing:-.035em;max-width:17em}
+h2 em{font-style:normal;color:var(--sky)}
+.intro{margin:20px 0 0;color:var(--ink2);font-size:17.5px;max-width:38em}
 
 /* flow */
-.flow{position:relative;border-radius:28px;border:1px solid var(--stroke);background:linear-gradient(180deg,rgba(255,255,255,.03),rgba(255,255,255,.01));padding:56px 40px 44px;overflow:hidden}
-.flow::before{content:"";position:absolute;inset:0;background:linear-gradient(rgba(255,255,255,.035) 1px,transparent 1px),linear-gradient(90deg,rgba(255,255,255,.035) 1px,transparent 1px);background-size:44px 44px;mask-image:radial-gradient(ellipse at center,#000 30%,transparent 78%);pointer-events:none}
-.nodes{position:relative;display:grid;grid-template-columns:repeat(4,1fr);gap:20px;z-index:1}
-@media (max-width:900px){.nodes{grid-template-columns:1fr 1fr;row-gap:36px}}
-.node{text-align:center}
-.node .orb{width:84px;height:84px;margin:0 auto 18px;border-radius:24px;display:flex;align-items:center;justify-content:center;background:linear-gradient(180deg,#1d1a14,#121009);border:1px solid var(--stroke2);box-shadow:0 20px 50px -20px rgba(0,0,0,.9),inset 0 1px 0 rgba(255,255,255,.07);color:var(--gold)}
-.node .orb .ico{width:32px;height:32px}
-.node.pool .orb{background:radial-gradient(circle at 50% 40%,rgba(232,180,76,.25),#0f0d0a 70%);border-color:rgba(232,180,76,.35);box-shadow:0 0 60px -10px rgba(232,180,76,.5)}
-.node h3{margin:0 0 6px;font-size:17px;letter-spacing:-.02em}
-.node p{margin:0 auto;font-size:14px;color:var(--muted);max-width:22ch}
-.track{position:absolute;left:12.5%;right:12.5%;top:98px;height:2px;background:linear-gradient(90deg,rgba(232,180,76,.0),rgba(232,180,76,.45),rgba(232,180,76,.45),rgba(232,180,76,0));z-index:0}
-@media (max-width:900px){.track{display:none}}
-.pulse{position:absolute;top:-5px;width:12px;height:12px;border-radius:50%;background:var(--gold2);box-shadow:0 0 18px 4px rgba(232,180,76,.7);animation:travel 5.5s linear infinite}
-.pulse:nth-child(2){animation-delay:1.8s}.pulse:nth-child(3){animation-delay:3.6s}
-@keyframes travel{0%{left:0;opacity:0}6%{opacity:1}44%{opacity:1;filter:none}50%{opacity:.08;filter:blur(4px)}62%{opacity:.08;filter:blur(4px)}70%{opacity:1;filter:none}94%{opacity:1}100%{left:100%;opacity:0}}
-.hidden-tags{display:flex;justify-content:center;gap:10px;flex-wrap:wrap;margin-top:40px;position:relative;z-index:1}
-.tag{font-size:12.5px;padding:7px 13px;border-radius:999px;border:1px solid var(--stroke2);color:var(--ink2);background:rgba(0,0,0,.25);display:inline-flex;gap:8px;align-items:center}
-.tag .ico{width:14px;height:14px;color:var(--ok)}
+.flow{position:relative;margin-top:60px;border:1px solid var(--line);border-radius:22px;overflow:hidden;background:linear-gradient(180deg,rgba(13,36,84,.35),rgba(4,11,29,.2))}
+.flow .dots{opacity:.22;-webkit-mask-image:radial-gradient(60% 80% at 50% 50%,#000,transparent);mask-image:radial-gradient(60% 80% at 50% 50%,#000,transparent)}
+.steps{position:relative;display:grid;grid-template-columns:repeat(4,1fr)}
+@media (max-width:900px){.steps{grid-template-columns:1fr 1fr}}
+@media (max-width:520px){.steps{grid-template-columns:1fr}}
+.step{padding:40px 30px 36px;border-left:1px solid var(--line)}
+.step:first-child{border-left:0}
+@media (max-width:900px){.step:nth-child(3){border-left:0}.step{border-top:1px solid var(--line)}.step:nth-child(-n+2){border-top:0}}
+@media (max-width:520px){.step{border-left:0!important;border-top:1px solid var(--line)!important}.step:first-child{border-top:0!important}}
+.step .n{font:12px var(--mono);color:var(--muted)}
+.step .ic{width:46px;height:46px;margin:26px 0 22px;border-radius:50%;display:flex;align-items:center;justify-content:center;border:1px solid var(--line2);color:var(--ice);background:radial-gradient(circle at 50% 35%,rgba(127,180,255,.22),rgba(4,11,29,.6))}
+.step.pool .ic{box-shadow:0 0 40px rgba(127,180,255,.45);border-color:rgba(127,180,255,.5)}
+.step h3{margin:0 0 8px;font-size:19px;font-weight:550;letter-spacing:-.02em}
+.step p{margin:0;color:var(--muted);font-size:14.5px}
+.strip{position:relative;display:flex;gap:28px;flex-wrap:wrap;padding:18px 30px;border-top:1px solid var(--line);font:12.5px var(--mono);color:var(--ink2)}
+.strip span{display:inline-flex;gap:9px;align-items:center}.strip span::before{content:"";width:5px;height:5px;border-radius:50%;background:var(--sky)}
 
-/* stats */
-.stats{display:grid;grid-template-columns:repeat(3,1fr);gap:20px}
-@media (max-width:860px){.stats{grid-template-columns:1fr}}
-.stat{padding:34px 32px;border-radius:24px;border:1px solid var(--stroke);background:var(--glass);position:relative;overflow:hidden}
-.stat::after{content:"";position:absolute;inset:auto -30% -60% auto;width:260px;height:260px;background:radial-gradient(closest-side,rgba(232,180,76,.16),transparent);pointer-events:none}
-.stat .big{font-size:76px;line-height:1;letter-spacing:-.06em;font-weight:680}
-.stat h3{margin:18px 0 8px;font-size:19px;letter-spacing:-.02em}
-.stat p{margin:0;color:var(--muted);font-size:15px}
+/* numbers */
+.numbers{display:grid;grid-template-columns:repeat(3,1fr);margin-top:60px;border-top:1px solid var(--line);border-bottom:1px solid var(--line)}
+@media (max-width:860px){.numbers{grid-template-columns:1fr}}
+.num{position:relative;padding:44px 30px 40px;border-left:1px solid var(--line);overflow:hidden}
+.num:first-child{border-left:0}
+@media (max-width:860px){.num{border-left:0;border-top:1px solid var(--line)}.num:first-child{border-top:0}}
+.num .dots{opacity:.18;-webkit-mask-image:radial-gradient(70% 70% at 100% 100%,#000,transparent);mask-image:radial-gradient(70% 70% at 100% 100%,#000,transparent);transition:opacity .4s}
+.num:hover .dots{opacity:.4}
+.num strong{position:relative;display:block;font-size:clamp(64px,7vw,104px);line-height:.9;font-weight:400;letter-spacing:-.06em;color:#fff}
+.num h3{position:relative;margin:26px 0 8px;font-size:18px;font-weight:550;letter-spacing:-.02em}
+.num p{position:relative;margin:0;color:var(--muted);font-size:15px;max-width:22em}
 
 /* compare */
-.compare{display:grid;grid-template-columns:1fr 1fr;gap:20px}
+.compare{display:grid;grid-template-columns:1fr 1fr;gap:18px;margin-top:60px}
 @media (max-width:860px){.compare{grid-template-columns:1fr}}
-.cmp{border-radius:24px;border:1px solid var(--stroke);padding:30px 30px 18px;background:var(--glass)}
-.cmp.you{background:linear-gradient(180deg,rgba(232,180,76,.10),rgba(232,180,76,.02));border-color:rgba(232,180,76,.28)}
-.cmp h3{margin:0 0 4px;font-size:20px;letter-spacing:-.02em}.cmp > p{margin:0 0 18px;color:var(--muted);font-size:14.5px}
-.cmp .row{display:flex;justify-content:space-between;gap:16px;padding:14px 0;border-top:1px solid var(--stroke);font-size:15px}
-.cmp .row span:first-child{color:var(--ink2)}
-.cmp .row b{font-weight:600}
-.hid{color:var(--ok);display:inline-flex;align-items:center;gap:7px}.hid .ico{width:15px;height:15px}
+.pane{position:relative;border:1px solid var(--line);border-radius:20px;padding:30px 30px 14px;overflow:hidden;background:rgba(7,20,49,.45)}
+.pane.lit{background:radial-gradient(120% 90% at 100% 0%,rgba(42,99,212,.35),rgba(7,20,49,.5) 60%);border-color:rgba(127,180,255,.3)}
+.pane.lit .dots{opacity:.25;-webkit-mask-image:radial-gradient(80% 70% at 100% 0%,#000,transparent);mask-image:radial-gradient(80% 70% at 100% 0%,#000,transparent)}
+.pane h3{position:relative;margin:0;font-size:20px;font-weight:550;letter-spacing:-.02em}
+.pane .sub{position:relative;margin:4px 0 16px;color:var(--muted);font-size:14.5px}
+.row{position:relative;display:flex;justify-content:space-between;gap:16px;padding:14px 0;border-top:1px solid var(--line);font-size:15px}
+.row span:first-child{color:var(--ink2)}
+.row b{font-weight:500;color:#fff;text-align:right}
+.hid{color:#8fd6ff;display:inline-flex;gap:8px;align-items:center;font-family:var(--mono);font-size:13.5px}
+.hid .ico{width:15px;height:15px}
 
-/* demo tiles */
-.tiles{display:grid;grid-template-columns:repeat(3,1fr);gap:20px}
+/* demo */
+.tiles{display:grid;grid-template-columns:repeat(3,1fr);gap:18px;margin-top:60px}
 @media (max-width:960px){.tiles{grid-template-columns:1fr}}
-.tile{position:relative;border-radius:26px;padding:30px;border:1px solid var(--stroke);background:linear-gradient(180deg,rgba(255,255,255,.04),rgba(255,255,255,.01));display:flex;flex-direction:column;gap:14px;min-height:320px;transition:border-color .25s,transform .25s,box-shadow .25s}
-.tile:hover{border-color:rgba(232,180,76,.4);transform:translateY(-3px);box-shadow:0 30px 80px -40px rgba(232,180,76,.45)}
-.tile .n{font:600 13px var(--mono);color:var(--gold)}
-.tile .t-ico{width:52px;height:52px;border-radius:16px;display:flex;align-items:center;justify-content:center;background:rgba(232,180,76,.1);color:var(--gold);border:1px solid rgba(232,180,76,.22)}
-.tile .t-ico .ico{width:24px;height:24px}
-.tile h3{margin:6px 0 0;font-size:23px;letter-spacing:-.03em}
-.tile p{margin:0;color:var(--ink2);font-size:15px}
-.tile .go{margin-top:auto;display:flex;gap:10px;flex-wrap:wrap}
+.tile{position:relative;display:flex;flex-direction:column;min-height:340px;padding:30px;border:1px solid var(--line);border-radius:20px;overflow:hidden;background:linear-gradient(180deg,rgba(13,36,84,.4),rgba(4,11,29,.3));transition:border-color .3s,transform .3s}
+.tile .dots{opacity:.12;transition:opacity .5s;-webkit-mask-image:radial-gradient(90% 70% at 80% 0%,#000,transparent);mask-image:radial-gradient(90% 70% at 80% 0%,#000,transparent)}
+.tile:hover{border-color:rgba(127,180,255,.45);transform:translateY(-3px)}
+.tile:hover .dots{opacity:.4}
+.tile .n{position:relative;font:12px var(--mono);color:var(--sky)}
+.tile h3{position:relative;margin:70px 0 10px;font-size:26px;font-weight:500;letter-spacing:-.03em}
+.tile p{position:relative;margin:0;color:var(--ink2);font-size:15px}
+.tile .go{position:relative;margin-top:auto;padding-top:26px;display:flex;gap:8px;flex-wrap:wrap}
+.btn-o{display:inline-flex;align-items:center;gap:14px;height:44px;padding:0 16px;border:1px solid var(--line2);border-radius:3px;font-size:14px;color:#fff;background:rgba(4,11,29,.4);transition:background .2s,border-color .2s}
+.btn-o:hover{background:rgba(42,99,212,.25);border-color:rgba(127,180,255,.5)}
+.btn-o.w{background:#fff;color:#081633;border-color:#fff;font-weight:550}.btn-o.w:hover{background:var(--ice)}
+.btn-o .ico{width:15px;height:15px}
 
-/* steps + verify */
-.split{display:grid;grid-template-columns:1fr 1fr;gap:20px;margin-top:20px}
-@media (max-width:960px){.split{grid-template-columns:1fr}}
-.card{border-radius:26px;border:1px solid var(--stroke);background:var(--glass);padding:32px}
-.card h3{margin:0 0 6px;font-size:22px;letter-spacing:-.03em}.card > p{margin:0 0 22px;color:var(--muted)}
-ol.steps{list-style:none;margin:0;padding:0;display:grid;gap:16px;counter-reset:s}
-ol.steps li{display:grid;grid-template-columns:34px 1fr;gap:14px;counter-increment:s;color:var(--ink2);font-size:15.5px}
-ol.steps li::before{content:counter(s);width:30px;height:30px;border-radius:10px;background:rgba(232,180,76,.12);border:1px solid rgba(232,180,76,.3);color:var(--gold2);font:600 13px var(--mono);display:flex;align-items:center;justify-content:center}
-ol.steps b{color:var(--ink);font-weight:600}
-.term{border-radius:18px;background:#050406;border:1px solid var(--stroke);overflow:hidden}
-.term-bar{display:flex;gap:7px;padding:12px 14px;border-bottom:1px solid var(--stroke)}
-.term-bar i{width:10px;height:10px;border-radius:50%;background:#2a2620}
-.term pre{margin:0;padding:18px;font:12.5px/1.7 var(--mono);color:#d9d2c3;white-space:pre-wrap;word-break:break-all}
-.term .c{color:var(--muted)}.term .ok{color:var(--ok)}.term .g{color:var(--gold2)}
+.pair{display:grid;grid-template-columns:1fr 1fr;gap:18px;margin-top:18px}
+@media (max-width:960px){.pair{grid-template-columns:1fr}}
+.box{border:1px solid var(--line);border-radius:20px;padding:30px;background:rgba(7,20,49,.45)}
+.box h3{margin:0 0 6px;font-size:21px;font-weight:550;letter-spacing:-.02em}
+.box > p{margin:0 0 24px;color:var(--muted)}
+ol.tour{list-style:none;margin:0;padding:0;display:grid;counter-reset:t}
+ol.tour li{display:grid;grid-template-columns:44px 1fr;gap:10px;padding:13px 0;border-top:1px solid var(--line);counter-increment:t;color:var(--ink2);font-size:15.5px}
+ol.tour li:first-child{border-top:0}
+ol.tour li::before{content:"0" counter(t);font:13px var(--mono);color:var(--sky);padding-top:2px}
+ol.tour b{color:#fff;font-weight:550}
+.term{border:1px solid var(--line);border-radius:14px;background:#020713;overflow:hidden}
+.term pre{margin:0;padding:20px;font:12.5px/1.75 var(--mono);color:#c7d6f2;white-space:pre-wrap;word-break:break-all}
+.term .c{color:var(--muted)}.term .ok{color:#6ff0b2}.term .h{color:var(--sky)}
 
-/* run strip + footer */
-.running{display:flex;gap:10px;flex-wrap:wrap;margin-top:20px}
-.running span{display:inline-flex;align-items:center;gap:9px;font-size:13.5px;color:var(--ink2);padding:10px 15px;border-radius:12px;border:1px solid var(--stroke);background:var(--glass)}
-.running i{width:7px;height:7px;border-radius:50%;background:var(--ok)}
-.cta-band{margin-top:120px;border-radius:32px;padding:72px 40px;text-align:center;border:1px solid rgba(232,180,76,.25);background:radial-gradient(600px 260px at 50% 0%,rgba(232,180,76,.22),transparent 70%),linear-gradient(180deg,rgba(255,255,255,.04),rgba(255,255,255,.01))}
-.cta-band h2{font-size:clamp(32px,4vw,52px);letter-spacing:-.045em;line-height:1.05;margin:0 0 16px}
-.cta-band p{color:var(--ink2);margin:0 auto 32px;max-width:34em;font-size:17px}
-.cta-band .ctas{justify-content:center;margin-top:0}
-footer{padding:64px 0 48px;color:var(--faint);font-size:13.5px}
-footer .wrap{display:flex;justify-content:space-between;gap:20px;flex-wrap:wrap;border-top:1px solid var(--stroke);padding-top:28px}
-@media (prefers-reduced-motion:reduce){*,*::before,*::after{animation:none!important;transition:none!important}}
+/* finale */
+.finale{position:relative;margin:130px auto 0;max-width:1324px;border-radius:22px;overflow:hidden;padding:110px 34px;text-align:center;background:radial-gradient(70% 120% at 50% 100%,#14408f 0%,#071431 55%,#040b1d 100%)}
+.finale .dots{opacity:.32;-webkit-mask-image:radial-gradient(60% 90% at 50% 100%,#000,transparent);mask-image:radial-gradient(60% 90% at 50% 100%,#000,transparent)}
+.finale h2{position:relative;margin:0 auto;max-width:14em;font-size:clamp(34px,4.6vw,64px)}
+.finale p{position:relative;color:var(--ink2);margin:20px auto 36px;max-width:32em;font-size:17px}
+.finale .cta{position:relative;justify-content:center;margin-top:0}
+footer{max-width:1360px;margin:0 auto;padding:44px 34px 48px;display:flex;justify-content:space-between;gap:16px;flex-wrap:wrap;color:var(--faint);font:12.5px var(--mono)}
+@media (prefers-reduced-motion:reduce){*{transition:none!important}}
 </style></head><body>
 
-<nav><div class="wrap">
-  <a class="brand" href="#top">${MARK}Cadence</a>
-  <div class="navlinks">
-    <a class="hide-s" href="#how">How it works</a>
-    <a class="hide-s" href="#privacy">Privacy</a>
-    <a class="hide-s" href="#demo">Live demo</a>
-    <span class="live" title="A private Zcash chain is running on this machine"><i></i><span id="height">Private chain</span></span>
-  </div>
-</div></nav>
-
-<header class="hero" id="top"><div class="wrap hero-grid">
-  <div>
-    <span class="kicker"><b>Zcash</b> Shielded autopay, built for Zecathon 2026</span>
-    <h1>Subscriptions that pay themselves. <span class="gold">Privately.</span></h1>
-    <p class="lead">Zcash can't pull money from your wallet, so every subscription means remembering to pay. Cadence lets you approve once, with hard limits you sign, and pays each period for you. Every payment is fully shielded. Merchants never hold a key that can spend.</p>
-    <div class="ctas">
-      <a class="btn primary" href="${esc(l.appUrl)}" target="_blank" rel="noopener noreferrer">Open your Cadence ${ICONS.arrow}</a>
-      <a class="btn" href="${esc(vpn.url)}" target="_blank" rel="noopener noreferrer">See a checkout</a>
+<div class="shell">
+<header class="hero" id="top">
+  <canvas id="beam" aria-hidden="true"></canvas>
+  <div class="hero-ui">
+    <div class="top">
+      <a class="wordmark" href="#top" aria-label="Cadence home">${MARK}cadence</a>
+      <nav class="nav" aria-label="Sections">
+        <a class="hide" href="#how">How it works</a>
+        <a class="hide" href="#privacy">Privacy</a>
+        <a class="hide" href="#demo">Live demo</a>
+        <span class="chain" title="A private Zcash chain is running on this machine"><i></i><span id="height">Chain live</span></span>
+        <a class="login" ${out(l.appUrl)}>Open Cadence ${ICONS.arrow}</a>
+      </nav>
     </div>
-    <div class="proof-row">
-      <span>${ICONS.shield}Shielded to shielded</span>
-      <span>${ICONS.key}Keys never leave you</span>
-      <span>${ICONS.eyeOff}Merchant is view-only</span>
-    </div>
-  </div>
-
-  <div class="stage" aria-hidden="true">
-    <div class="glow"></div>
-    <div class="panel sheet">
-      <div class="eyebrow">Review and approve</div>
-      <div class="who"><div class="av">P</div><div><h3>Private VPN</h3><p>demo-vpn · checkout</p></div></div>
-      <div class="amt"><strong>0.25 ZEC</strong><span>every 30 days · up to 12×</span></div>
-      <div class="cols">
-        <div class="yes"><div class="eyebrow">You allow</div><ul>
-          <li>${ICONS.check}At most 0.25 ZEC per period</li>
-          <li>${ICONS.check}3 ZEC in total, then it stops</li>
-          <li>${ICONS.check}Shielded payments only</li></ul></div>
-        <div class="no"><div class="eyebrow">They can never</div><ul>
-          <li>${ICONS.x}Charge more or earlier</li>
-          <li>${ICONS.x}See your balance</li>
-          <li>${ICONS.x}Take after you revoke</li></ul></div>
+    <div></div>
+    <div class="copy">
+      <h1>Private autopay for Zcash subscriptions</h1>
+      <p>Approve a subscription once, with limits you sign. Cadence pays every period for you, shielded end to end. Merchants get paid without ever holding a key that can spend.</p>
+      <div class="cta">
+        <a class="btn-w" ${out(l.appUrl)}>Open your Cadence ${ICONS.arrow}</a>
+        <span class="note">Live on a private Zcash chain</span>
       </div>
-      <div class="approve"><span class="btn sm">Cancel</span><span class="btn sm primary">${ICONS.check} Approve</span></div>
-    </div>
-    <div class="panel toast"><div class="tick">${ICONS.check}</div><div><strong>Payment 3 of 12 sent</strong><span>Private VPN · 0.25 ZEC · shielded</span></div></div>
-    <div class="panel chain"><div class="eyebrow">What the chain sees</div>
-      <div class="row"><span>Sender</span><span>hidden</span></div>
-      <div class="row"><span>Recipient</span><span>hidden</span></div>
-      <div class="row"><span>Amount</span><span>hidden</span></div>
-      <div class="row pub"><span>Public</span><span>fee · 2 actions</span></div>
     </div>
   </div>
-</div></header>
+  <div class="legend" aria-hidden="true"><span>sender <b>hidden</b></span><span>recipient <b>hidden</b></span><span>amount <b>hidden</b></span></div>
+</header>
+</div>
 
-<section class="block" id="how"><div class="wrap">
-  <div class="sec-head">
-    <span class="eyebrow">How it works</span>
-    <h2>One approval. <span class="gold">Every payment after that, automatic.</span></h2>
-    <p>You sign a mandate: who, how much, how often, how many times. Your Cadence agent pays each period and refuses anything outside it. The money moves inside the shielded pool, so the chain records that something happened, and nothing about who or how much.</p>
-  </div>
+<section id="how">
+  <span class="label">How it works</span>
+  <h2>One approval. <em>Every payment after that is automatic.</em></h2>
+  <p class="intro">You sign a mandate: who, how much, how often, how many times. Your Cadence agent pays each period and refuses anything outside it. Value moves inside Zcash's shielded pool, so the chain records that a payment happened and nothing about who or how much.</p>
   <div class="flow">
-    <div class="track"><span class="pulse"></span><span class="pulse"></span><span class="pulse"></span></div>
-    <div class="nodes">
-      <div class="node"><div class="orb">${ICONS.key}</div><h3>You approve</h3><p>Exact amount, period and total, signed once.</p></div>
-      <div class="node"><div class="orb">${ICONS.repeat}</div><h3>Your agent pays</h3><p>Checks every rule before each payment.</p></div>
-      <div class="node pool"><div class="orb">${ICONS.shield}</div><h3>Shielded pool</h3><p>Sender, recipient and amount are encrypted.</p></div>
-      <div class="node"><div class="orb">${ICONS.eyeOff}</div><h3>Merchant sees it</h3><p>With a viewing key only. It can't spend.</p></div>
+    <div class="dots"></div>
+    <div class="steps">
+      <div class="step"><span class="n">01</span><div class="ic">${ICONS.key}</div><h3>You approve</h3><p>Exact amount, period and total, signed once on your device.</p></div>
+      <div class="step"><span class="n">02</span><div class="ic">${ICONS.repeat}</div><h3>Your agent pays</h3><p>Every rule is checked before each payment. Anything else is refused.</p></div>
+      <div class="step pool"><span class="n">03</span><div class="ic">${ICONS.shield}</div><h3>Shielded pool</h3><p>Sender, recipient and amount are encrypted on chain.</p></div>
+      <div class="step"><span class="n">04</span><div class="ic">${ICONS.eyeOff}</div><h3>Merchant sees it</h3><p>Through a viewing key only. It can confirm payment, never spend.</p></div>
     </div>
-    <div class="hidden-tags">
-      <span class="tag">${ICONS.check}New address every cycle</span>
-      <span class="tag">${ICONS.check}No transparent fallback, ever</span>
-      <span class="tag">${ICONS.check}Randomised send time</span>
-      <span class="tag">${ICONS.check}Revoke stops it instantly</span>
-    </div>
+    <div class="strip"><span>new address every cycle</span><span>no transparent fallback</span><span>randomised send time</span><span>revoke stops it instantly</span></div>
   </div>
-</div></section>
+</section>
 
-<section class="block"><div class="wrap">
-  <div class="stats">
-    <div class="stat"><div class="big gold">0</div><h3>Transparent inputs or outputs</h3><p>In every payment Cadence sends. Checked on chain, not assumed.</p></div>
-    <div class="stat"><div class="big gold">1</div><h3>Viewing key</h3><p>All the merchant server holds. A breach can't move a single zatoshi.</p></div>
-    <div class="stat"><div class="big gold">1×</div><h3>Approval per subscription</h3><p>Then it runs by itself, inside the limits you signed, until you revoke.</p></div>
+<section>
+  <div class="numbers">
+    <div class="num"><div class="dots"></div><strong>0</strong><h3>Transparent inputs or outputs</h3><p>In every Cadence payment. Read back from the chain, not assumed.</p></div>
+    <div class="num"><div class="dots"></div><strong>1</strong><h3>Viewing key on the server</h3><p>All a merchant holds. A breach can't move a single zatoshi.</p></div>
+    <div class="num"><div class="dots"></div><strong>1×</strong><h3>Approval per subscription</h3><p>Then it runs inside your limits until you revoke.</p></div>
   </div>
-</div></section>
+</section>
 
-<section class="block" id="privacy"><div class="wrap">
-  <div class="sec-head">
-    <span class="eyebrow">Privacy</span>
-    <h2>The chain sees a payment. <span class="gold">Not your life.</span></h2>
-    <p>Read back from the chain, a Cadence payment is a shielded transaction with a fee. Everything else stays between you and the merchant you chose.</p>
-  </div>
+<section id="privacy">
+  <span class="label">Privacy</span>
+  <h2>The chain sees a payment. <em>Not your life.</em></h2>
+  <p class="intro">Read back from the chain, a Cadence payment is a shielded transaction and a fee. Everything else stays between you and the merchant you chose.</p>
   <div class="compare">
-    <div class="cmp"><h3>Anyone watching the chain</h3><p>Public data for every Cadence payment</p>
+    <div class="pane"><h3>Anyone watching the chain</h3><p class="sub">Public data for every Cadence payment</p>
       <div class="row"><span>Who paid</span><span class="hid">${ICONS.eyeOff} hidden</span></div>
       <div class="row"><span>Who was paid</span><span class="hid">${ICONS.eyeOff} hidden</span></div>
       <div class="row"><span>How much</span><span class="hid">${ICONS.eyeOff} hidden</span></div>
       <div class="row"><span>Links between payments</span><span class="hid">${ICONS.eyeOff} none</span></div>
       <div class="row"><span>What is public</span><b>block, fee, 2 actions</b></div>
     </div>
-    <div class="cmp you"><h3>You and your merchant</h3><p>What each side knows, and nothing more</p>
+    <div class="pane lit"><div class="dots"></div><h3>You and your merchant</h3><p class="sub">What each side knows, and nothing more</p>
       <div class="row"><span>You</span><b>every payment, every limit</b></div>
       <div class="row"><span>Merchant</span><b>this subscription is paid</b></div>
       <div class="row"><span>Merchant can't see</span><b>your balance, other payments</b></div>
-      <div class="row"><span>Merchant can't do</span><b>charge, change, or keep charging</b></div>
+      <div class="row"><span>Merchant can't do</span><b>charge, change, keep charging</b></div>
       <div class="row"><span>Proof</span><b>one command, rerunnable</b></div>
     </div>
   </div>
-</div></section>
+</section>
 
-<section class="block" id="demo"><div class="wrap">
-  <div class="sec-head">
-    <span class="eyebrow">Live demo · running on this machine</span>
-    <h2>Try it end to end <span class="gold">in two minutes.</span></h2>
-    <p>A real Zcash chain, real shielded proofs, real wallets. The demo plans renew every few minutes and a block is mined every 15 seconds, so you can watch whole cycles happen.</p>
-  </div>
+<section id="demo">
+  <span class="label">Live demo · running on this machine</span>
+  <h2>Try the whole loop <em>in two minutes.</em></h2>
+  <p class="intro">A real Zcash chain, real shielded proofs, real wallets. Demo plans renew every few minutes and a block is mined every 15 seconds, so you can watch whole cycles happen.</p>
   <div class="tiles">
-    <article class="tile"><span class="n">01 · open first</span><div class="t-ico">${ICONS.repeat}</div><h3>Your Cadence</h3><p>The subscriber's app. Review limits, approve, watch payments go out, revoke. The checkout hands off to it.</p>
-      <div class="go"><a class="btn primary sm" href="${esc(l.appUrl)}" target="_blank" rel="noopener noreferrer">Open Cadence ${ICONS.arrow}</a></div></article>
-    <article class="tile"><span class="n">02 · then</span><div class="t-ico">${ICONS.store}</div><h3>A merchant's checkout</h3><p>What a customer sees on a shop's site. Click Subscribe with Zcash, approve, and watch the page confirm the first payment.</p>
-      <div class="go">${l.checkoutUrls.map((c, i) => `<a class="btn ${i === 0 ? "primary " : ""}sm" href="${esc(c.url)}" target="_blank" rel="noopener noreferrer">${esc(c.name)}</a>`).join("")}</div></article>
-    <article class="tile"><span class="n">03 · and</span><div class="t-ico">${ICONS.chart}</div><h3>Merchant dashboard</h3><p>Revenue, renewals, late payers and webhooks, all computed from a viewing key. This server cannot spend.</p>
-      <div class="go"><a class="btn sm" href="${esc(l.adminUrl)}" target="_blank" rel="noopener noreferrer">Open dashboard ${ICONS.arrow}</a></div></article>
+    <article class="tile"><div class="dots"></div><span class="n">01 · open first</span><h3>Your Cadence</h3><p>The subscriber's app. Review limits, approve, watch payments go out, revoke any time.</p>
+      <div class="go"><a class="btn-o w" ${out(l.appUrl)}>Open Cadence ${ICONS.arrow}</a></div></article>
+    <article class="tile"><div class="dots"></div><span class="n">02 · then</span><h3>A merchant's checkout</h3><p>What a customer sees on a shop's site. Subscribe with Zcash and watch the page confirm the first payment.</p>
+      <div class="go">${l.checkoutUrls.map((c) => `<a class="btn-o" ${out(c.url)}>${esc(c.name)} ${ICONS.arrow}</a>`).join("")}</div></article>
+    <article class="tile"><div class="dots"></div><span class="n">03 · and</span><h3>Merchant dashboard</h3><p>Revenue, renewals, late payers and webhooks, computed from a viewing key alone.</p>
+      <div class="go"><a class="btn-o" ${out(l.adminUrl)}>Open dashboard ${ICONS.arrow}</a></div></article>
   </div>
-  <div class="split">
-    <div class="card"><h3>The two-minute tour</h3><p>Follow these in order.</p>
-      <ol class="steps">
+  <div class="pair">
+    <div class="box"><h3>The two-minute tour</h3><p>Follow these in order.</p>
+      <ol class="tour">
         <li><span><b>Open Cadence.</b> Your shielded test balance is already there.</span></li>
         <li><span><b>Open the Private VPN checkout</b> and click Subscribe with Zcash.</span></li>
         <li><span><b>Read the limits, approve.</b> The checkout flips to “first payment received”.</span></li>
@@ -325,11 +261,10 @@ footer .wrap{display:flex;justify-content:space-between;gap:20px;flex-wrap:wrap;
         <li><span><b>Revoke.</b> The next renewal is refused. Nothing else can be taken.</span></li>
       </ol>
     </div>
-    <div class="card"><h3>Don't trust us. Verify.</h3><p>Reads every payment back from the node and checks it, with a known-leaky control that must fail.</p>
-      <div class="term"><div class="term-bar"><i></i><i></i><i></i></div>
-<pre><span class="c">$</span> ${esc(l.proofCommand)}
+    <div class="box"><h3>Don't trust us. Verify.</h3><p>Reads every payment back from the node and checks it, with a known-leaky control that must fail.</p>
+      <div class="term"><pre><span class="c">$</span> ${esc(l.proofCommand)}
 
-<span class="g"># summary of the report it prints</span>
+<span class="h"># summary of the report it prints</span>
 no transparent inputs ............ <span class="ok">PASS</span>
 no transparent outputs ........... <span class="ok">PASS</span>
 amount appears nowhere public .... <span class="ok">PASS</span>
@@ -338,28 +273,156 @@ control (leaky tx) ............... <span class="ok">caught</span>
 <span class="ok">ALL CHECKS PASS</span></pre></div>
     </div>
   </div>
-  <div class="running">
-    <span><i></i>Zebra node · private regtest</span><span><i></i>Zaino light-wallet server</span><span><i></i>Merchant · view-only wallet</span><span><i></i>Cadence · subscriber wallet</span><span><i></i>Miner · a block every 15s</span>
-  </div>
+</section>
 
-  <div class="cta-band">
-    <h2>Approve once. <span class="gold">Stay private forever.</span></h2>
-    <p>Open your Cadence, then subscribe from the checkout. The whole loop runs on this machine.</p>
-    <div class="ctas"><a class="btn primary" href="${esc(l.appUrl)}" target="_blank" rel="noopener noreferrer">Open your Cadence ${ICONS.arrow}</a><a class="btn" href="${esc(vpn.url)}" target="_blank" rel="noopener noreferrer">Go to checkout</a></div>
+<div class="shell">
+  <div class="finale">
+    <div class="dots"></div>
+    <h2>Approve once. <em>Stay private for good.</em></h2>
+    <p>Open your Cadence, then subscribe from a checkout. The whole loop runs on this machine.</p>
+    <div class="cta"><a class="btn-w" ${out(l.appUrl)}>Open your Cadence ${ICONS.arrow}</a><a class="btn-o" ${out(vpn.url)}>Go to checkout ${ICONS.arrow}</a></div>
   </div>
-</div></section>
-
-<footer><div class="wrap"><span>Cadence · private autopay for Zcash · MIT licensed</span><span>Built for ZECATHON 2026 · Shielded Payments</span></div></footer>
+</div>
+<footer><span>cadence · private autopay for zcash · MIT</span><span>ZECATHON 2026 · Shielded Payments</span></footer>
 <script src="/hub.js"></script>
 </body></html>`;
 }
 
+/** Hero light as a halftone screen: every dot's radius follows the brightness of a light field
+ *  (a beam opening from a glowing core, plus soft haze lobes). Particles spray from the core
+ *  and orbit lines circle it. Static if the visitor prefers reduced motion. */
 export const HUB_JS = `"use strict";
-(async function tick() {
-  try {
-    const s = await (await fetch("/status")).json();
-    if (s.height !== null) document.getElementById("height").textContent = "Live · block " + s.height.toLocaleString();
-  } catch {}
-  setTimeout(tick, 5000);
+(() => {
+  const heightEl = document.getElementById("height");
+  (async function tick() {
+    try {
+      const s = await (await fetch("/status")).json();
+      if (s.height !== null) heightEl.textContent = "Block " + s.height.toLocaleString();
+    } catch {}
+    setTimeout(tick, 5000);
+  })();
+
+  const canvas = document.getElementById("beam");
+  const ctx = canvas.getContext("2d");
+  const still = matchMedia("(prefers-reduced-motion: reduce)").matches;
+  let W = 0, H = 0, dpr = 1, core = { x: 0, y: 0 }, halftone = null, parts = [], orbits = [];
+
+  const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
+  // Brightness of the light field at a point, 0..1.
+  function field(x, y) {
+    const dx = (x - core.x) / W, dy = (y - core.y) / H;
+    let v = 0;
+    if (dx > -0.02) {
+      const t = Math.max(dx, 0);
+      const spread = 0.01 + t * 0.4;
+      const beam = Math.exp(-(dy * dy) / (2 * spread * spread)) * (0.3 + 0.7 * Math.min(1, t * 2.6));
+      v = Math.max(v, beam * (1.0 - 0.18 * t));
+    }
+    const r = Math.hypot(dx * 1.6, dy);
+    v = Math.max(v, Math.exp(-(r * r) / 0.0009));
+    const lob = (cy) => Math.exp(-(((dx - 0.5) ** 2) / 0.07 + ((dy - cy) ** 2) / 0.012));
+    v = Math.max(v, 0.3 * lob(-0.36), 0.3 * lob(0.36));
+    v += 0.16 * Math.exp(-((dx - 0.66) ** 2) / 0.04 - (dy * dy) / 0.05);
+    return clamp(v, 0, 1);
+  }
+  function color(v) {
+    const stops = [[4, 11, 29], [18, 52, 128], [72, 140, 245], [215, 235, 255]];
+    const p = v * (stops.length - 1), i = Math.min(stops.length - 2, Math.floor(p)), f = p - i;
+    const a = stops[i], b = stops[i + 1];
+    return "rgb(" + (a[0] + (b[0] - a[0]) * f | 0) + "," + (a[1] + (b[1] - a[1]) * f | 0) + "," + (a[2] + (b[2] - a[2]) * f | 0) + ")";
+  }
+
+  function buildHalftone() {
+    const off = document.createElement("canvas");
+    off.width = W * dpr; off.height = H * dpr;
+    const o = off.getContext("2d");
+    o.scale(dpr, dpr);
+    const step = W < 700 ? 6 : 7.5;
+    for (let y = step / 2; y < H; y += step) {
+      for (let x = step / 2; x < W; x += step) {
+        const v = field(x, y);
+        if (v < 0.035) continue;
+        const r = Math.max(0.5, step * 0.46 * Math.sqrt(v)); // dots never touch, so the screen stays visible
+        o.fillStyle = color(Math.min(1, v * 1.05));
+        o.beginPath(); o.arc(x, y, r, 0, Math.PI * 2); o.fill();
+      }
+    }
+    halftone = off;
+  }
+
+  function spawn(p, fresh) {
+    const t = Math.pow(Math.random(), 1.8);
+    p.x = core.x + (fresh ? t * W * 0.55 : Math.random() * 8);
+    p.y = core.y;
+    p.vy = (Math.random() - 0.5) * 1.5;
+    p.speed = 0.35 + Math.random() * 1.1;
+    p.size = Math.random() < 0.12 ? 1.8 : 1.1;
+    if (fresh) p.y += p.vy * (0.15 + t * 2.4) * (t * W * 0.55) / p.speed * 0.5;
+    return p;
+  }
+
+  function resize() {
+    const rect = canvas.getBoundingClientRect();
+    W = rect.width; H = rect.height; dpr = Math.min(2, window.devicePixelRatio || 1);
+    canvas.width = W * dpr; canvas.height = H * dpr;
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    core = { x: W * (W < 700 ? 0.18 : 0.3), y: H * 0.47 };
+    buildHalftone();
+    const n = W < 700 ? 700 : 2200;
+    parts = Array.from({ length: n }, () => spawn({}, true));
+    orbits = [
+      { rx: W * 0.17, ry: H * 0.24, rot: -0.12, speed: 0.0021, a: 0.6, off: 0.18 },
+      { rx: W * 0.27, ry: H * 0.13, rot: 0.06, speed: 0.0013, a: 2.4, off: 0.24 },
+      { rx: W * 0.36, ry: H * 0.30, rot: -0.04, speed: 0.0009, a: 4.1, off: 0.33 },
+    ];
+  }
+
+  function frame() {
+    ctx.clearRect(0, 0, W, H);
+    ctx.drawImage(halftone, 0, 0, W, H);
+
+    ctx.lineWidth = 1;
+    for (const o of orbits) {
+      const cx = core.x + o.rx * o.off * 2.4;
+      ctx.save(); ctx.translate(cx, core.y); ctx.rotate(o.rot);
+      ctx.strokeStyle = "rgba(205,225,255,.22)";
+      ctx.beginPath(); ctx.ellipse(0, 0, o.rx, o.ry, 0, 0, Math.PI * 2); ctx.stroke();
+      if (!still) o.a += o.speed;
+      const px = Math.cos(o.a) * o.rx, py = Math.sin(o.a) * o.ry;
+      ctx.fillStyle = "#fff"; ctx.shadowColor = "rgba(160,205,255,.9)"; ctx.shadowBlur = 8;
+      ctx.beginPath(); ctx.arc(px, py, 2.6, 0, Math.PI * 2); ctx.fill();
+      ctx.restore();
+    }
+    ctx.shadowBlur = 0;
+
+    for (const p of parts) {
+      if (!still) {
+        p.x += p.speed;
+        const t = (p.x - core.x) / W;
+        p.y += p.vy * (0.15 + t * 2.4);
+        if (p.x > core.x + W * 0.6 || Math.abs(p.y - core.y) > H * 0.5) spawn(p, false);
+      }
+      const t = (p.x - core.x) / W;
+      const a = Math.max(0, 1 - t * 1.25);
+      ctx.fillStyle = "rgba(235,245,255," + a.toFixed(3) + ")";
+      ctx.fillRect(p.x, p.y, p.size, p.size);
+    }
+
+    const g = ctx.createRadialGradient(core.x, core.y, 0, core.x, core.y, 46);
+    g.addColorStop(0, "rgba(255,255,255,1)"); g.addColorStop(0.18, "rgba(230,242,255,.95)");
+    g.addColorStop(0.45, "rgba(127,180,255,.35)"); g.addColorStop(1, "rgba(127,180,255,0)");
+    ctx.fillStyle = g; ctx.beginPath(); ctx.arc(core.x, core.y, 46, 0, Math.PI * 2); ctx.fill();
+    const rx = core.x - Math.min(70, W * 0.05);
+    ctx.strokeStyle = "rgba(160,200,255,.6)"; ctx.lineWidth = 1.2;
+    ctx.beginPath(); ctx.arc(rx, core.y, 9, 0, Math.PI * 2); ctx.stroke();
+    ctx.fillStyle = "#fff"; ctx.beginPath(); ctx.arc(rx, core.y, 3, 0, Math.PI * 2); ctx.fill();
+
+    if (!still) requestAnimationFrame(frame);
+  }
+
+  let timer = 0;
+  window.addEventListener("resize", () => { clearTimeout(timer); timer = setTimeout(() => { resize(); if (still) frame(); }, 120); });
+  resize();
+  frame();
 })();
 `;

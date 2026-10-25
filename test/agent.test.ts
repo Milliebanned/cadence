@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import { mkdtempSync, readFileSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { Agent } from "../src/agent.ts";
+import { Agent, PENDING_RECOVERY_SEC } from "../src/agent.ts";
 import { AuditLog } from "../src/audit.ts";
 import { pickSendTime } from "../src/schedule.ts";
 import { MockWallet } from "../src/wallet.ts";
@@ -163,4 +163,34 @@ test("a payment that expires unmined is reopened and paid again, exactly once", 
   assert.ok(events.includes("expired-unmined"));
   const [idle] = await agent.tick(T0 + 700, zero);
   assert.equal(idle!.action, "waiting", "nothing more until the next cycle is due");
+});
+
+test("after a crash mid-send, the wallet's records decide: sent means paid, absent means pay again", async () => {
+  const { dir, wallet, m } = setup();
+  const statePath = join(dir, "agent.json");
+  // Simulate a crash right after the write-ahead record: pending set, nothing more.
+  const crashed = JSON.parse(readFileSync(statePath, "utf8"));
+  const inv = makeInvoice(m, 1);
+  crashed.mandates[m.id].state.pending = { cycle: 1, address: inv.address, startedAt: T0 + 10 };
+  writeFileSync(statePath, JSON.stringify(crashed));
+
+  // Case 1: the wallet never recorded it, so after the recovery window the cycle is paid normally.
+  const a = new Agent({ storePath: statePath, auditPath: join(dir, "audit.log"), wallet, getInvoice: async (md, c) => makeInvoice(md, c) });
+  const [early] = await a.tick(T0 + 30, zero);
+  assert.equal(early!.action, "blocked", "no recovery before the window");
+  const [late] = await a.tick(T0 + 10 + PENDING_RECOVERY_SEC, zero);
+  assert.equal(late!.action, "paid");
+  assert.equal(wallet.sent.length, 1);
+
+  // Case 2: the wallet did record it: recovery marks it paid and does not send again.
+  const state2 = JSON.parse(readFileSync(statePath, "utf8"));
+  const s = state2.mandates[m.id].state;
+  s.cyclesPaid = 0; s.totalPaidZat = 0; s.usedAddresses = []; s.unconfirmed = null;
+  s.pending = { cycle: 1, address: wallet.sent[0]!.address, startedAt: T0 + 10 };
+  writeFileSync(statePath, JSON.stringify(state2));
+  const b = new Agent({ storePath: statePath, auditPath: join(dir, "audit2.log"), wallet, getInvoice: async (md, c) => makeInvoice(md, c) });
+  const [r] = await b.tick(T0 + 10 + PENDING_RECOVERY_SEC + 1, zero);
+  assert.notEqual(r!.action, "paid", JSON.stringify(r));
+  assert.equal(wallet.sent.length, 1, "no second payment");
+  assert.equal(b.stateOf(m.id).cyclesPaid, 1);
 });

@@ -36,10 +36,10 @@ export function checkoutHtml(opts: { merchantName: string; plan: Plan; offerUrl:
 .terms{margin-top:28px;display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px}
 .term{padding:14px 16px;border:1px solid var(--line);border-radius:var(--r);background:var(--surface)}
 .term strong{display:block;font-size:17px;letter-spacing:-.01em}.term span{font-size:12.5px;color:var(--muted)}
-.pay{position:sticky;top:24px;background:linear-gradient(180deg,#1b1813,#100f0b);border-color:var(--line-2)}
+.pay{position:sticky;top:24px;background:linear-gradient(180deg,#0d1f4b,#06122c);border-color:var(--line-2)}
 .priv{margin-top:34px;padding-top:28px;border-top:1px solid var(--line);display:grid;gap:18px}
 .priv-row{display:grid;grid-template-columns:40px 1fr;gap:14px;align-items:start}
-.priv-row .pi{width:40px;height:40px;border-radius:12px;display:flex;align-items:center;justify-content:center;background:var(--gold-soft);color:var(--gold);border:1px solid rgba(232,180,76,.22)}
+.priv-row .pi{width:40px;height:40px;border-radius:12px;display:flex;align-items:center;justify-content:center;background:var(--gold-soft);color:var(--gold);border:1px solid rgba(127,180,255,.22)}
 .priv-row strong{display:block;font-size:15px;margin-bottom:2px}.priv-row span{color:var(--muted);font-size:14px}
 .pay-head{padding:24px 26px 0}
 .price{display:flex;align-items:baseline;gap:8px;margin-top:6px}.price strong{font-size:44px;letter-spacing:-.035em;line-height:1}

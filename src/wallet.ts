@@ -9,6 +9,10 @@ export interface WalletAdapter {
   /** Whether a sent transaction made it on chain. "expired" means it passed its expiry height
    *  unmined and can never be mined, so paying the cycle again cannot double-pay. */
   txStatus?(txid: string): Promise<"mined" | "pending" | "expired">;
+  /** After a crash: the txid of a payment the wallet already recorded to this address for this
+   *  amount, or null. The wallet stores a transaction before broadcasting it, so "not recorded"
+   *  means it never left. */
+  findSent?(address: string, amountZat: number, sinceSec: number): Promise<string | null>;
   /** Must send shielded-to-shielded only and fail rather than fall back to transparent. */
   sendShielded(address: string, amountZat: number, memo: string): Promise<{ txid: string }>;
 }
@@ -27,6 +31,10 @@ export class MockWallet implements WalletAdapter {
   preflightError: string | null = null;
   /** txid -> status; anything not listed is reported as mined */
   readonly status = new Map<string, "mined" | "pending" | "expired">();
+
+  async findSent(address: string, amountZat: number): Promise<string | null> {
+    return this.sent.find((s) => s.address === address && s.amountZat === amountZat)?.txid ?? null;
+  }
 
   async txStatus(txid: string): Promise<"mined" | "pending" | "expired"> {
     return this.status.get(txid) ?? "mined";
