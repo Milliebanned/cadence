@@ -72,12 +72,22 @@ export interface DevtoolOptions {
 
 export class DevtoolWallet implements WalletAdapter {
   private readonly o: Required<DevtoolOptions>;
+  /** Wallet commands share one SQLite database; running them one at a time avoids lock failures
+   *  (for example a background sync colliding with generating an invoice address). */
+  private queue: Promise<unknown> = Promise.resolve();
 
   constructor(opts: DevtoolOptions) {
     this.o = { ...opts, server: opts.server ?? "zecrocks", connection: opts.connection ?? "direct" };
   }
 
-  private async exec(args: string[], timeoutMs = 600_000): Promise<string> {
+  private exec(args: string[], timeoutMs = 600_000): Promise<string> {
+    if (args[0] !== "wallet") return this.execNow(args, timeoutMs);
+    const next = this.queue.then(() => this.execNow(args, timeoutMs));
+    this.queue = next.catch(() => {});
+    return next;
+  }
+
+  private async execNow(args: string[], timeoutMs: number): Promise<string> {
     const { stdout, stderr } = await run(this.o.bin, args, {
       timeout: timeoutMs,
       maxBuffer: 64 * 1024 * 1024,

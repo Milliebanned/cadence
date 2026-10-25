@@ -1,90 +1,78 @@
+import { ICONS, LOGO_SVG, THEME_CSS } from "./ui/theme.ts";
+
 export const ADMIN_HTML = `<!doctype html>
 <html lang="en">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <meta name="referrer" content="no-referrer">
-<title>Cadence merchant</title>
-<style>
-:root{
-  --bg:#f7f5f0;--surface:#fffefb;--ink:#1d1b17;--muted:#6c675d;--line:#e4dfd3;--soft:#efebe2;--grid:#ece8de;
-  --accent:#b07a12;--chart:#b07a12;--ok:#1e7a4c;--ok-bg:#e1f1e7;--warn:#9a5b00;--warn-bg:#f8ead2;--bad:#b3261e;--bad-bg:#f7e1df;
-  --radius:14px;--shadow:0 1px 2px rgba(29,27,23,.05),0 4px 16px rgba(29,27,23,.05);
-}
-@media (prefers-color-scheme:dark){:root{
-  --bg:#13120f;--surface:#1c1a16;--ink:#efece4;--muted:#a19b8f;--line:#2f2c26;--soft:#25221d;--grid:#2a2722;
-  --accent:#e6b247;--chart:#b8832a;--ok:#6cc995;--ok-bg:#183424;--warn:#e7ac55;--warn-bg:#3a2b14;--bad:#f07a71;--bad-bg:#3d1c19;--shadow:none;
-}}
-*{box-sizing:border-box}html,body{margin:0;background:var(--bg);color:var(--ink)}
-body{font:14.5px/1.5 ui-sans-serif,system-ui,-apple-system,"Segoe UI",sans-serif;-webkit-font-smoothing:antialiased}
-h1{font-size:20px;margin:0}h2{font-size:15px;margin:0 0 12px}p{margin:0}
-.muted{color:var(--muted)}.mono{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:12.5px}
-.bar{display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;padding:14px 24px;border-bottom:1px solid var(--line);background:var(--surface)}
-.brand{display:flex;align-items:center;gap:10px;font-weight:650}.brand small{font-weight:400;color:var(--muted)}
-.mark{width:20px;height:20px;border-radius:50%;background:conic-gradient(var(--accent) 0 75%,var(--line) 75% 100%);box-shadow:inset 0 0 0 4px var(--surface)}
+<title>Cadence · Merchant</title>
+<style>${THEME_CSS}
+:root{--chart:#b07a12;--grid:#ece8de}
+@media (prefers-color-scheme:dark){:root{--chart:#b8832a;--grid:#26231d}}
 .badges{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
-.badge{font-size:12px;padding:3px 10px;border-radius:999px;background:var(--soft);color:var(--muted);display:inline-flex;gap:6px;align-items:center}
-.badge.ok{background:var(--ok-bg);color:var(--ok)}.badge.warn{background:var(--warn-bg);color:var(--warn)}
-.wrap{max-width:1180px;margin:0 auto;padding:24px 24px 64px;display:flex;flex-direction:column;gap:18px}
-@media (max-width:720px){.wrap{padding:16px 16px 48px}.bar{padding:12px 16px}}
-.kpis{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px}
-@media (max-width:820px){.kpis{grid-template-columns:repeat(2,minmax(0,1fr))}}
-.kpi,.panel{background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);box-shadow:var(--shadow)}
-.kpi{padding:14px 16px}.kpi span{font-size:12.5px;color:var(--muted)}.kpi strong{display:block;font-size:24px;font-variant-numeric:tabular-nums;letter-spacing:-.01em}
-.kpi small{color:var(--muted);font-size:12px}
-.panel{padding:18px}
+.title{display:flex;align-items:flex-end;justify-content:space-between;gap:16px;flex-wrap:wrap;margin-bottom:22px}
+.title h1{font-size:26px}
+.title p{margin-top:4px}
+.kpis{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:14px;margin-bottom:18px}
+@media (max-width:860px){.kpis{grid-template-columns:repeat(2,minmax(0,1fr))}}
+.kpi{padding:18px 20px}.kpi strong{display:block;font-size:30px;letter-spacing:-.03em;margin:6px 0 2px}
+.kpi small{color:var(--muted);font-size:12.5px}
+.kpi.lead{background:linear-gradient(135deg,var(--surface),var(--gold-soft))}
+.stack{display:flex;flex-direction:column;gap:18px}
 .grid2{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:18px}
-@media (max-width:900px){.grid2{grid-template-columns:1fr}}
+@media (max-width:920px){.grid2{grid-template-columns:1fr}}
+.panel-head{display:flex;align-items:baseline;justify-content:space-between;gap:12px;margin-bottom:14px}
+.panel-head h2{font-size:16px}
 .chart{position:relative}
-.chart svg{display:block;width:100%;height:220px;overflow:visible}
-.tip{position:absolute;pointer-events:none;background:var(--ink);color:var(--bg);font-size:12.5px;padding:6px 9px;border-radius:8px;white-space:nowrap;transform:translate(-50%,-110%);opacity:0;transition:opacity .1s}
+.chart svg{display:block;width:100%;height:230px;overflow:visible}
+.tip{position:absolute;pointer-events:none;background:var(--ink);color:var(--paper);font-size:12.5px;font-weight:600;padding:6px 10px;border-radius:8px;white-space:nowrap;transform:translate(-50%,-115%);opacity:0;transition:opacity .1s}
 .tip.on{opacity:1}
-table{width:100%;border-collapse:collapse;font-variant-numeric:tabular-nums}
-th,td{text-align:left;padding:8px 6px;border-bottom:1px solid var(--line);vertical-align:middle}
-th{font-size:12px;font-weight:550;color:var(--muted)}tr:last-child td{border-bottom:0}
-td.num,th.num{text-align:right}
-.scroll{overflow-x:auto}
-.chip{display:inline-block;font-size:12px;font-weight:550;padding:1px 8px;border-radius:999px}
-.chip.active{background:var(--ok-bg);color:var(--ok)}.chip.late{background:var(--warn-bg);color:var(--warn)}
-.chip.lapsed,.chip.cancelled{background:var(--bad-bg);color:var(--bad)}.chip.complete{background:var(--soft);color:var(--muted)}
-.chip.sent{background:var(--ok-bg);color:var(--ok)}.chip.failed{background:var(--bad-bg);color:var(--bad)}
-.btn{font:inherit;font-size:13px;font-weight:550;padding:5px 11px;border-radius:9px;border:1px solid var(--line);background:var(--surface);color:var(--ink);cursor:pointer}
-.btn:hover{background:var(--soft)}.btn.danger{color:var(--bad)}.btn.danger.confirm{background:var(--bad);color:#fff;border-color:var(--bad)}
-.btn:focus-visible,a:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
-a{color:inherit}
-.empty{color:var(--muted);padding:10px 0}
-.err{color:var(--bad)}
+.empty-row{color:var(--muted);padding:14px 0}
+.err{margin-bottom:14px}
+.planlink{display:inline-flex;align-items:center;gap:6px;font-size:13px;color:var(--ink-2);text-decoration:none;border-bottom:1px solid var(--line-2)}
+.planlink .ico{width:14px;height:14px}
+.vk{display:flex;gap:12px;align-items:flex-start;background:var(--soft);box-shadow:none}
+.vk .ico{color:var(--gold);margin-top:2px}
 </style>
 </head>
 <body>
-<header class="bar">
-  <div class="brand"><span class="mark" aria-hidden="true"></span><span id="name">Merchant</span><small>· Cadence</small></div>
-  <div class="badges">
-    <span class="badge ok" title="Addresses and payments come from a viewing key. There is no spending key on this server.">View-only · cannot spend</span>
-    <span id="sync" class="badge">…</span>
-    <span id="network" class="badge"></span>
+<header class="band">
+  <div class="band-inner">
+    <div class="logo">${LOGO_SVG}<span id="name">Merchant</span><small>· Cadence for merchants</small></div>
+    <div class="badges">
+      <span class="chip ok" title="Addresses and payments come from a viewing key. There is no spending key on this server.">${ICONS.eyeOff} View-only · cannot spend</span>
+      <span id="sync" class="chip">…</span>
+      <span id="network" class="chip"></span>
+    </div>
   </div>
 </header>
-<main class="wrap">
-  <p id="error" class="err" role="alert"></p>
-  <section class="kpis" aria-label="Summary">
-    <div class="kpi"><span>Received</span><strong id="k-received">–</strong><small>all time, ZEC</small></div>
-    <div class="kpi"><span>Run rate</span><strong id="k-run">–</strong><small>ZEC per 30 days, active plans</small></div>
-    <div class="kpi"><span>Active subscribers</span><strong id="k-active">–</strong><small id="k-total"></small></div>
-    <div class="kpi"><span>Need attention</span><strong id="k-attn">–</strong><small>late or lapsed</small></div>
-  </section>
-  <section class="panel">
-    <h2>Received per day <span class="muted" style="font-weight:400">· last 14 days, ZEC</span></h2>
-    <div class="chart" id="chart"><svg id="chart-svg" role="img" aria-label="Bar chart of ZEC received per day"></svg><div class="tip" id="tip"></div></div>
-  </section>
-  <div class="grid2">
-    <section class="panel"><h2>Upcoming renewals</h2><div class="scroll"><table id="upcoming"></table></div></section>
-    <section class="panel"><h2>Need attention</h2><div class="scroll"><table id="attention"></table></div></section>
+<main class="page">
+  <p id="error" class="error err" role="alert"></p>
+  <div class="title">
+    <div><h1>Subscriptions</h1><p class="muted">Every number here comes from your viewing key. Customers' balances and other payments stay invisible to you.</p></div>
   </div>
-  <section class="panel"><h2>Plans</h2><div class="scroll"><table id="plans"></table></div></section>
-  <div class="grid2">
-    <section class="panel"><h2>Recent payments</h2><div class="scroll"><table id="payments"></table></div></section>
-    <section class="panel"><h2>Events and webhooks</h2><div class="scroll"><table id="events"></table></div></section>
+  <section class="kpis" aria-label="Summary">
+    <div class="card kpi lead"><span class="eyebrow">Received</span><strong id="k-received" class="num">–</strong><small>ZEC, all time</small></div>
+    <div class="card kpi"><span class="eyebrow">Expected next 30 days</span><strong id="k-run" class="num">–</strong><small>ZEC still approved and falling due</small></div>
+    <div class="card kpi"><span class="eyebrow">Active subscribers</span><strong id="k-active" class="num">–</strong><small id="k-total"></small></div>
+    <div class="card kpi"><span class="eyebrow">Need attention</span><strong id="k-attn" class="num">–</strong><small>late or lapsed</small></div>
+  </section>
+  <div class="stack">
+    <section class="card pad">
+      <div class="panel-head"><h2>Received per day</h2><span class="muted small">last 14 days · ZEC</span></div>
+      <div class="chart" id="chart"><svg id="chart-svg" role="img" aria-label="Bar chart of ZEC received per day"></svg><div class="tip" id="tip"></div></div>
+    </section>
+    <div class="grid2">
+      <section class="card pad"><div class="panel-head"><h2>Upcoming renewals</h2></div><div class="scroll"><table id="upcoming"></table></div></section>
+      <section class="card pad"><div class="panel-head"><h2>Need attention</h2></div><div class="scroll"><table id="attention"></table></div></section>
+    </div>
+    <section class="card pad"><div class="panel-head"><h2>Plans</h2><span class="muted small">share a checkout link to sell a plan</span></div><div class="scroll"><table id="plans"></table></div></section>
+    <div class="grid2">
+      <section class="card pad"><div class="panel-head"><h2>Recent payments</h2></div><div class="scroll"><table id="payments"></table></div></section>
+      <section class="card pad"><div class="panel-head"><h2>Events and webhooks</h2></div><div class="scroll"><table id="events"></table></div></section>
+    </div>
+    <section class="card pad vk">${ICONS.key}<div><strong>Why this server cannot spend</strong><p class="muted small">It was created from a unified full viewing key. It can derive fresh receive addresses and see payments to them, but it holds no spending key. A breach of this server cannot move funds.</p></div></section>
   </div>
 </main>
 <script src="/admin.js"></script>
@@ -132,13 +120,13 @@ export const ADMIN_JS = `"use strict";
   const fill = (id, head, rows, emptyText) => {
     const t = $(id);
     t.replaceChildren(h("thead", {}, h("tr", {}, head.map(([label, cls]) => h("th", { class: cls }, label)))),
-      h("tbody", {}, rows.length ? rows : [h("tr", {}, h("td", { colspan: head.length, class: "empty" }, emptyText))]));
+      h("tbody", {}, rows.length ? rows : [h("tr", {}, h("td", { colspan: head.length, class: "empty-row" }, emptyText))]));
   };
 
   const armed = new Set();
   function cancelBtn(id) {
     const on = armed.has(id);
-    return h("button", { class: "btn danger" + (on ? " confirm" : ""), onclick: async () => {
+    return h("button", { class: "btn danger" + (on ? " armed" : ""), onclick: async () => {
       if (!armed.has(id)) { armed.add(id); setTimeout(() => armed.delete(id), 4000); return refresh(); }
       armed.delete(id);
       try { await api("/admin/api/cancel", { mandateId: id }); } catch (e) { $("error").textContent = e.message; }
@@ -151,7 +139,7 @@ export const ADMIN_JS = `"use strict";
     const W = Math.max(320, box.clientWidth), H = 220, padL = 44, padB = 26, padT = 10;
     svg.setAttribute("viewBox", "0 0 " + W + " " + H);
     svg.replaceChildren();
-    const max = Math.max(1, ...daily.map((d) => d.zat));
+    const max = Math.max(1e8, ...daily.map((d) => d.zat)); // empty chart: scale to 1 ZEC, not to one zatoshi
     const nice = (() => { const raw = max / 1e8 / 4; const p = Math.pow(10, Math.floor(Math.log10(raw || 1))); const m = raw / p; return (m <= 1 ? 1 : m <= 2 ? 2 : m <= 5 ? 5 : 10) * p; })();
     const top = Math.max(nice * 4, max / 1e8);
     const y = (z) => H - padB - ((z / 1e8) / top) * (H - padB - padT);
@@ -159,7 +147,7 @@ export const ADMIN_JS = `"use strict";
       const v = nice * i, yy = y(v * 1e8);
       if (yy < padT - 1) break;
       svg.append(s("line", { x1: padL, x2: W, y1: yy, y2: yy, stroke: "var(--grid)", "stroke-width": 1 }));
-      const lbl = s("text", { x: padL - 8, y: yy + 4, "text-anchor": "end", "font-size": 11, fill: "var(--muted)" }); lbl.textContent = String(+v.toFixed(8)); svg.append(lbl);
+      const lbl = s("text", { x: padL - 8, y: yy + 4, "text-anchor": "end", "font-size": 11, fill: "var(--muted)" }); lbl.textContent = v.toFixed(8).replace(/0+$/, "").replace(/\\.$/, ""); svg.append(lbl);
     }
     const n = daily.length, slot = (W - padL) / n, bw = Math.max(4, Math.min(28, slot - 6));
     daily.forEach((d, i) => {
@@ -185,30 +173,30 @@ export const ADMIN_JS = `"use strict";
     $("name").textContent = o.merchantName;
     $("network").textContent = o.network;
     const sync = $("sync");
-    if (o.health && o.health.lastSyncError) { sync.className = "badge warn"; sync.textContent = "Sync problem"; sync.title = o.health.lastSyncError; }
-    else if (o.health && o.health.lastSyncAt) { sync.className = "badge"; sync.textContent = "Synced " + rel(o.health.lastSyncAt); sync.title = ""; }
-    else { sync.className = "badge"; sync.textContent = "Not synced yet"; }
+    if (o.health && o.health.lastSyncError) { sync.className = "chip warn"; sync.textContent = "Sync problem"; sync.title = o.health.lastSyncError; }
+    else if (o.health && o.health.lastSyncAt) { sync.className = "chip"; sync.textContent = "Synced " + rel(o.health.lastSyncAt); sync.title = ""; }
+    else { sync.className = "chip"; sync.textContent = "Not synced yet"; }
     $("k-received").textContent = zec(o.receivedZat);
-    $("k-run").textContent = zec(o.runRateZat);
+    $("k-run").textContent = zec(o.expected30dZat);
     $("k-active").textContent = o.counts.active + o.counts.late;
     $("k-total").textContent = o.subscriptions + " total, " + o.counts.complete + " complete, " + o.counts.cancelled + " cancelled";
     $("k-attn").textContent = o.counts.late + o.counts.lapsed;
     chart(o.daily);
-    fill("upcoming", [["Plan"], ["Subscription"], ["Due"], ["Paid", "num"], ["Amount", "num"]],
-      o.upcoming.map((r) => h("tr", {}, h("td", {}, r.plan), h("td", { class: "mono", title: r.mandateId }, short(r.mandateId)), h("td", {}, rel(r.dueAt)), h("td", { class: "num" }, r.cyclesPaid + "/" + r.maxCycles), h("td", { class: "num" }, zec(r.amountZat)))),
+    fill("upcoming", [["Plan"], ["Subscription"], ["Due"], ["Paid", "r"], ["Amount", "r"]],
+      o.upcoming.map((r) => h("tr", {}, h("td", {}, r.plan), h("td", { class: "mono", title: r.mandateId }, short(r.mandateId)), h("td", {}, rel(r.dueAt)), h("td", { class: "r" }, r.cyclesPaid + "/" + r.maxCycles), h("td", { class: "r" }, zec(r.amountZat)))),
       "No renewals scheduled.");
     fill("attention", [["Plan"], ["Subscription"], ["Status"], ["Was due"], [""]],
-      o.attention.map((r) => h("tr", {}, h("td", {}, r.plan), h("td", { class: "mono", title: r.mandateId }, short(r.mandateId)), h("td", {}, h("span", { class: "chip " + r.status }, r.status)), h("td", {}, rel(r.dueAt)), h("td", { class: "num" }, cancelBtn(r.mandateId)))),
+      o.attention.map((r) => h("tr", {}, h("td", {}, r.plan), h("td", { class: "mono", title: r.mandateId }, short(r.mandateId)), h("td", {}, h("span", { class: "chip " + ({ late: "warn", lapsed: "bad", cancelled: "bad", active: "ok" }[r.status] || "") }, r.status)), h("td", {}, rel(r.dueAt)), h("td", { class: "r" }, cancelBtn(r.mandateId)))),
       "Everyone is paid up.");
-    fill("plans", [["Plan"], ["Price"], ["Subscribers", "num"], ["Received", "num"], ["Checkout page"]],
-      o.plans.map((p) => h("tr", {}, h("td", {}, p.name), h("td", {}, zec(p.amountZat) + " ZEC / " + p.every), h("td", { class: "num" }, p.subscribers), h("td", { class: "num" }, zec(p.receivedZat)), h("td", {}, h("a", { href: "/checkout/" + encodeURIComponent(p.id), target: "_blank", rel: "noopener" }, "/checkout/" + p.id)))),
+    fill("plans", [["Plan"], ["Price"], ["Subscribers", "r"], ["Received", "r"], ["Checkout"]],
+      o.plans.map((p) => h("tr", {}, h("td", {}, p.name), h("td", {}, zec(p.amountZat) + " ZEC / " + p.every), h("td", { class: "r" }, p.subscribers), h("td", { class: "r" }, zec(p.receivedZat)), h("td", {}, h("a", { class: "planlink", href: "/checkout/" + encodeURIComponent(p.id), target: "_blank", rel: "noopener" }, "Open checkout ↗")))),
       "No plans configured.");
-    fill("payments", [["When"], ["Plan"], ["Cycle", "num"], ["Amount", "num"], ["Transaction"]],
-      o.payments.map((p) => h("tr", {}, h("td", {}, p.at ? rel(p.at) : "block " + p.height), h("td", {}, p.plan), h("td", { class: "num" }, p.cycle), h("td", { class: "num" }, zec(p.amountZat)), h("td", { class: "mono", title: p.txid }, short(p.txid)))),
+    fill("payments", [["When"], ["Plan"], ["Cycle", "r"], ["Amount", "r"], ["Transaction"]],
+      o.payments.map((p) => h("tr", {}, h("td", {}, p.at ? rel(p.at) : "block " + p.height), h("td", {}, p.plan), h("td", { class: "r" }, p.cycle), h("td", { class: "r" }, zec(p.amountZat)), h("td", { class: "mono", title: p.txid }, short(p.txid)))),
       "No payments yet.");
     fill("events", [["When"], ["Event"], ["Subscription"], ["Webhook"]],
       o.events.map((e) => h("tr", {}, h("td", {}, rel(e.at)), h("td", {}, (EV[e.type] || e.type) + (e.cycle ? " · cycle " + e.cycle : "")), h("td", { class: "mono", title: e.mandateId }, short(e.mandateId)),
-        h("td", {}, e.webhook ? h("span", { class: "chip " + e.webhook.status, title: e.webhook.error || "" }, e.webhook.status + (e.webhook.code ? " " + e.webhook.code : "")) : h("span", { class: "muted" }, o.webhookConfigured ? "pending" : "off")))),
+        h("td", {}, e.webhook ? h("span", { class: "chip " + (e.webhook.status === "sent" ? "ok" : "bad"), title: e.webhook.error || "" }, e.webhook.status + (e.webhook.code ? " " + e.webhook.code : "")) : h("span", { class: "muted" }, o.webhookConfigured ? "pending" : "off")))),
       "No events since this server started.");
   }
 

@@ -9,6 +9,9 @@ import type { Invoice, Mandate, Network } from "./types.ts";
 export interface Plan {
   id: string;
   name: string;
+  /** shown on the checkout page */
+  description?: string;
+  features?: string[];
   amountZat: number;
   periodSec: number;
   maxCycles: number;
@@ -43,8 +46,8 @@ export interface MerchantOverview {
   counts: Record<SubscriptionStatus, number>;
   subscriptions: number;
   receivedZat: number;
-  /** active and late subscriptions, normalised to 30 days */
-  runRateZat: number;
+  /** payments still allowed by active mandates that fall due within 30 days */
+  expected30dZat: number;
   daily: Array<{ day: string; zat: number }>;
   plans: Array<{ id: string; name: string; amountZat: number; periodSec: number; subscribers: number; receivedZat: number }>;
   upcoming: OverviewRow[];
@@ -246,7 +249,7 @@ export class Merchant {
     const attention: MerchantOverview["attention"] = [];
     const payments: MerchantOverview["payments"] = [];
     let receivedZat = 0;
-    let runRateZat = 0;
+    let expectedZat = 0;
     const perPlan = new Map<string, { subscribers: number; receivedZat: number }>();
 
     for (const sub of subs) {
@@ -256,7 +259,12 @@ export class Merchant {
       const plan = perPlan.get(mandate.planId) ?? { subscribers: 0, receivedZat: 0 };
       if (st.status === "active" || st.status === "late") {
         plan.subscribers++;
-        runRateZat += Math.round((mandate.amountZat * 30 * DAY) / mandate.periodSec);
+        // Only payments the mandate still allows and that fall due in the next 30 days.
+        for (let c = st.cyclesPaid + 1; c <= mandate.maxCycles; c++) {
+          const due = dueAtForCycle(mandate, c);
+          if (due > now + 30 * DAY || due >= mandate.expiresAt) break;
+          expectedZat += mandate.amountZat;
+        }
       }
       const row = { mandateId: mandate.id, plan: planName(mandate.planId), amountZat: mandate.amountZat, dueAt: st.nextDueAt, cyclesPaid: st.cyclesPaid, maxCycles: mandate.maxCycles, status: st.status };
       if ((st.status === "active" || st.status === "late") && st.nextDueAt !== null) upcoming.push(row);
@@ -296,7 +304,7 @@ export class Merchant {
       counts,
       subscriptions: subs.length,
       receivedZat,
-      runRateZat,
+      expected30dZat: expectedZat,
       daily,
       plans: [...this.plans.values()].map((p) => ({ id: p.id, name: p.name, amountZat: p.amountZat, periodSec: p.periodSec, ...(perPlan.get(p.id) ?? { subscribers: 0, receivedZat: 0 }) })),
       upcoming: upcoming.slice(0, 12),

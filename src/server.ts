@@ -111,7 +111,10 @@ export function merchantServer(merchant: Merchant, opts: MerchantServerOptions):
         try {
           return send(res, 200, await merchant.invoice(parts[1]!, Number(parts[2]), now()));
         } catch (e) {
-          throw new HttpError(404, (e as Error).message);
+          const msg = (e as Error).message;
+          // Rule violations are final; anything else (wallet busy, sync error) is worth retrying.
+          const final = /unknown subscription|cancelled|no such cycle|not due yet/.test(msg);
+          throw new HttpError(final ? 404 : 503, final ? msg : `invoice temporarily unavailable: ${msg.split("\n")[0]}`);
         }
       }
 

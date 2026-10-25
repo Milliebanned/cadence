@@ -1,4 +1,5 @@
 import type { Plan } from "./merchant.ts";
+import { ICONS, LOGO_SVG, THEME_CSS } from "./ui/theme.ts";
 
 function esc(s: string): string {
   return s.replace(/[&<>"']/g, (c) => `&#${c.charCodeAt(0)};`);
@@ -17,53 +18,81 @@ function every(sec: number): string {
 export function checkoutHtml(opts: { merchantName: string; plan: Plan; offerUrl: string; appUrl: string; ref: string }): string {
   const { merchantName, plan, offerUrl, appUrl, ref } = opts;
   const openUrl = `${appUrl.replace(/\/$/, "")}/?offer=${encodeURIComponent(offerUrl)}`;
+  const total = plan.amountZat * plan.maxCycles;
+  const features = (plan.features ?? []).slice(0, 6);
   return `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <meta name="referrer" content="no-referrer"><title>${esc(plan.name)} · ${esc(merchantName)}</title>
-<style>
-:root{--bg:#f7f5f0;--surface:#fffefb;--ink:#1d1b17;--muted:#6c675d;--line:#e4dfd3;--soft:#efebe2;--accent:#b07a12;--accent-ink:#1d1b17;--ok:#1e7a4c;--ok-bg:#e1f1e7}
-@media (prefers-color-scheme:dark){:root{--bg:#13120f;--surface:#1c1a16;--ink:#efece4;--muted:#a19b8f;--line:#2f2c26;--soft:#25221d;--accent:#e6b247;--accent-ink:#1a1710;--ok:#6cc995;--ok-bg:#183424}}
-*{box-sizing:border-box}html,body{margin:0;background:var(--bg);color:var(--ink)}
-body{font:15px/1.55 ui-sans-serif,system-ui,-apple-system,"Segoe UI",sans-serif;-webkit-font-smoothing:antialiased;padding:40px 16px}
-.wrap{max-width:460px;margin:0 auto}
-.merchant{font-size:13px;color:var(--muted);letter-spacing:.04em;text-transform:uppercase;margin-bottom:10px}
-.card{background:var(--surface);border:1px solid var(--line);border-radius:18px;padding:26px}
-h1{font-size:24px;margin:0 0 4px;letter-spacing:-.01em}
-.price{display:flex;align-items:baseline;gap:8px;margin:18px 0 6px}.price strong{font-size:34px;font-variant-numeric:tabular-nums}.price span{color:var(--muted)}
-.terms{color:var(--muted);margin:0 0 20px}
-.btn{display:flex;align-items:center;justify-content:center;gap:10px;width:100%;font:inherit;font-weight:650;font-size:16px;padding:13px 16px;border-radius:12px;background:var(--accent);color:var(--accent-ink);text-decoration:none;border:0}
-.btn:hover{filter:brightness(1.05)}.btn:focus-visible,.copy:focus-visible{outline:2px solid var(--ink);outline-offset:2px}
-.z{width:20px;height:20px;border-radius:50%;background:var(--accent-ink);color:var(--accent);display:inline-flex;align-items:center;justify-content:center;font-size:13px;font-weight:800}
-.alt{margin-top:16px;font-size:13px;color:var(--muted)}
-.linkrow{display:flex;gap:6px;margin-top:6px}
-.linkrow input{flex:1;min-width:0;font:12px ui-monospace,Menlo,monospace;padding:8px 10px;border:1px solid var(--line);border-radius:9px;background:var(--bg);color:var(--ink)}
-.copy{font:inherit;font-size:13px;font-weight:550;padding:7px 12px;border-radius:9px;border:1px solid var(--line);background:var(--surface);color:var(--ink);cursor:pointer}
-.status{margin-top:20px;padding:12px 14px;border-radius:12px;background:var(--soft);font-size:14px;display:flex;gap:10px;align-items:center}
-.status.ok{background:var(--ok-bg);color:var(--ok)}
-.spin{width:12px;height:12px;border-radius:50%;border:2px solid var(--line);border-top-color:var(--accent);animation:s 1s linear infinite;flex:none}
-.status.ok .spin{display:none}
-@keyframes s{to{transform:rotate(360deg)}}@media (prefers-reduced-motion:reduce){.spin{animation:none}}
-.how{margin:22px 0 0;padding:0;list-style:none;display:grid;gap:10px;font-size:14px}
-.how li{display:grid;grid-template-columns:24px 1fr;gap:8px}.how b{color:var(--accent)}
-.fine{font-size:12.5px;color:var(--muted);margin-top:18px;text-align:center}
-</style></head><body><main class="wrap">
-<div class="merchant">${esc(merchantName)}</div>
-<div class="card" id="checkout" data-ref="${esc(ref)}">
-  <h1>${esc(plan.name)}</h1>
-  <div class="price"><strong>${zec(plan.amountZat)} ZEC</strong><span>every ${esc(every(plan.periodSec))}</span></div>
-  <p class="terms">Up to ${plan.maxCycles} payments. Cancel any time from your own app.</p>
-  <a class="btn" id="open" href="${esc(openUrl)}" target="_blank" rel="noopener noreferrer"><span class="z">ⓩ</span>Subscribe with Zcash</a>
-  <div class="alt">Cadence not on this computer? Paste this link into your Cadence app:
-    <div class="linkrow"><input id="offer" readonly value="${esc(offerUrl)}" aria-label="Subscription link"><button class="copy" id="copy" type="button">Copy</button></div>
-  </div>
-  <div class="status" id="status" role="status" aria-live="polite"><span class="spin" aria-hidden="true"></span><span id="status-text">Waiting for you to approve in Cadence…</span></div>
-  <ol class="how">
-    <li><b>1</b><span>Cadence shows you the exact limits: amount, how often, how many times.</span></li>
-    <li><b>2</b><span>You approve. Your keys never leave your computer and we get no permission to spend.</span></li>
-    <li><b>3</b><span>Each period your Cadence pays a fresh shielded address. Nobody else can see who paid or how much.</span></li>
-  </ol>
-</div>
-<p class="fine">Payments are shielded Zcash. ${esc(merchantName)} sees that your subscription is paid, nothing more.</p>
-</main><script src="/checkout.js"></script></body></html>`;
+<style>${THEME_CSS}
+.shop{max-width:1040px;margin:0 auto;padding:22px 28px;display:flex;align-items:center;justify-content:space-between}
+.shop-name{display:flex;align-items:center;gap:10px;font-weight:650;font-size:16px}
+.shop-name .avatar{width:32px;height:32px;border-radius:9px;font-size:14px;background:var(--ink);color:var(--paper)}
+.secure{display:inline-flex;align-items:center;gap:6px;font-size:13px;color:var(--muted)}.secure .ico{width:15px;height:15px;color:var(--ok)}
+.wrap{max-width:1040px;margin:0 auto;padding:12px 28px 72px;display:grid;grid-template-columns:1.1fr 1fr;gap:40px;align-items:start}
+@media (max-width:880px){.wrap{grid-template-columns:1fr;gap:24px;padding:8px 16px 56px}.shop{padding:18px 16px}}
+.plan h1{font-size:34px;letter-spacing:-.03em;line-height:1.15;margin-top:8px}
+.plan .desc{font-size:16.5px;color:var(--ink-2);margin-top:12px;max-width:46ch}
+.feats{list-style:none;padding:0;margin:26px 0 0;display:grid;gap:12px}
+.feats li{display:flex;gap:10px;align-items:flex-start;font-size:15px}.feats .ico{color:var(--gold);margin-top:2px}
+.terms{margin-top:28px;display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px}
+.term{padding:14px 16px;border:1px solid var(--line);border-radius:var(--r);background:var(--surface)}
+.term strong{display:block;font-size:17px;letter-spacing:-.01em}.term span{font-size:12.5px;color:var(--muted)}
+.pay{position:sticky;top:24px}
+.pay-head{padding:24px 26px 0}
+.price{display:flex;align-items:baseline;gap:8px;margin-top:6px}.price strong{font-size:44px;letter-spacing:-.035em;line-height:1}
+.price span{color:var(--muted);font-size:15px}
+.pay-body{padding:20px 26px 26px}
+.cta .ico{width:20px;height:20px}
+.or{display:flex;align-items:center;gap:10px;color:var(--faint);font-size:12px;margin:18px 0 10px;text-transform:uppercase;letter-spacing:.08em}
+.or::before,.or::after{content:"";flex:1;height:1px;background:var(--line)}
+.linkrow{display:flex;gap:8px}.linkrow .input{font-family:var(--mono);font-size:12px;padding:9px 10px}
+.status{margin-top:18px;padding:13px 15px;border-radius:12px;background:var(--soft);font-size:14px;display:flex;gap:11px;align-items:center;color:var(--ink-2)}
+.status.ok{background:var(--ok-soft);color:var(--ok)}.status .ico{width:18px;height:18px}
+.spin{width:14px;height:14px;border-radius:50%;border:2px solid var(--line-2);border-top-color:var(--gold);animation:s 1s linear infinite;flex:none}
+@keyframes s{to{transform:rotate(360deg)}}
+.steps{list-style:none;padding:0;margin:22px 0 0;display:grid;gap:14px;counter-reset:st}
+.steps li{display:grid;grid-template-columns:26px 1fr;gap:10px;font-size:13.5px;color:var(--ink-2);counter-increment:st}
+.steps li::before{content:counter(st);width:22px;height:22px;border-radius:50%;background:var(--gold-soft);color:var(--gold-ink);font-weight:700;font-size:12px;display:flex;align-items:center;justify-content:center}
+.steps b{color:var(--ink)}
+.foot{border-top:1px solid var(--line);padding:14px 26px;display:flex;align-items:center;gap:8px;font-size:12.5px;color:var(--muted)}
+.foot svg{width:16px;height:16px;color:var(--ink)}
+</style></head><body>
+<header class="shop">
+  <div class="shop-name"><span class="avatar">${esc(merchantName.trim().charAt(0).toUpperCase() || "M")}</span>${esc(merchantName)}</div>
+  <span class="secure">${ICONS.shield} Private checkout</span>
+</header>
+<main class="wrap">
+  <section class="plan">
+    <span class="eyebrow">Subscription</span>
+    <h1>${esc(plan.name)}</h1>
+    ${plan.description ? `<p class="desc">${esc(plan.description)}</p>` : ""}
+    ${features.length ? `<ul class="feats">${features.map((f) => `<li>${ICONS.check}<span>${esc(f)}</span></li>`).join("")}</ul>` : ""}
+    <div class="terms">
+      <div class="term"><strong class="num">${zec(plan.amountZat)} ZEC</strong><span>per payment</span></div>
+      <div class="term"><strong>${esc(every(plan.periodSec))}</strong><span>between payments</span></div>
+      <div class="term"><strong class="num">${plan.maxCycles}×</strong><span>at most, ${zec(total)} ZEC total</span></div>
+    </div>
+  </section>
+
+  <section class="card pay" id="checkout" data-ref="${esc(ref)}" aria-label="Pay with Zcash">
+    <div class="pay-head">
+      <span class="eyebrow">You pay</span>
+      <div class="price"><strong class="num">${zec(plan.amountZat)}</strong><span>ZEC every ${esc(every(plan.periodSec))}</span></div>
+    </div>
+    <div class="pay-body">
+      <a class="btn gold lg block cta" id="open" href="${esc(openUrl)}" target="_blank" rel="noopener noreferrer">${ICONS.zec} Subscribe with Zcash</a>
+      <div class="or">or paste in Cadence</div>
+      <div class="linkrow"><input class="input" id="offer" readonly value="${esc(offerUrl)}" aria-label="Subscription link"><button class="btn" id="copy" type="button">Copy</button></div>
+      <div class="status" id="status" role="status" aria-live="polite"><span class="spin" aria-hidden="true"></span><span id="status-text">Waiting for you to approve in Cadence…</span></div>
+      <ol class="steps">
+        <li><span><b>Review the limits.</b> Cadence shows exactly what ${esc(merchantName)} may take, and how often.</span></li>
+        <li><span><b>Approve.</b> Your keys stay on your computer. We never get permission to spend.</span></li>
+        <li><span><b>Paid privately.</b> Each payment goes to a fresh shielded address. Nobody else can see it.</span></li>
+      </ol>
+    </div>
+    <div class="foot">${LOGO_SVG}<span>Autopay by Cadence · shielded Zcash. Cancel any time from your app.</span></div>
+  </section>
+</main>
+<script src="/checkout.js"></script></body></html>`;
 }
 
 export const CHECKOUT_JS = `"use strict";
@@ -71,21 +100,27 @@ export const CHECKOUT_JS = `"use strict";
   const ref = document.getElementById("checkout").dataset.ref;
   const text = document.getElementById("status-text");
   const box = document.getElementById("status");
+  const CHECK = ${JSON.stringify(ICONS.check)};
   document.getElementById("copy").addEventListener("click", async (e) => {
     const input = document.getElementById("offer");
     try { await navigator.clipboard.writeText(input.value); e.target.textContent = "Copied"; }
     catch { input.select(); }
   });
   let done = false;
+  function ok(msg) {
+    box.classList.add("ok");
+    const spin = box.querySelector(".spin");
+    if (spin) { spin.insertAdjacentHTML("beforebegin", CHECK); spin.remove(); }
+    text.textContent = msg;
+  }
   async function poll() {
     if (done) return;
     try {
       const r = await fetch("/checkout/status?ref=" + encodeURIComponent(ref));
       const s = await r.json();
       if (s.state === "subscribed") {
-        box.classList.add("ok");
-        if (s.cyclesPaid > 0) { text.textContent = "Subscribed. First payment received. You're all set."; done = true; }
-        else text.textContent = "Subscribed. Waiting for the first payment…";
+        if (s.cyclesPaid > 0) { ok("You're subscribed. First payment received."); done = true; }
+        else ok("Approved. Waiting for the first payment…");
       }
     } catch {}
   }

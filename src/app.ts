@@ -173,7 +173,7 @@ export function subscriberApp(opts: AppOptions): { server: Server; stop: () => v
   function activity() {
     const labels = new Map(opts.agent.mandateIds().map((id) => [id, opts.meta.get(id)?.label ?? "Autopay"]));
     return AuditLog.read(opts.auditPath)
-      .slice(-60)
+      .slice(-200)
       .reverse()
       .map((e) => {
         const d = e.detail as Record<string, unknown>;
@@ -182,6 +182,7 @@ export function subscriberApp(opts: AppOptions): { server: Server; stop: () => v
           seq: e.seq,
           at: e.at,
           event: e.event,
+          mandateId: id,
           label: labels.get(id) ?? id.slice(0, 8),
           cycle: d.cycle ?? null,
           txid: d.txid ?? null,

@@ -138,11 +138,39 @@ test("overview: counts, run rate, upcoming, attention and daily revenue", async 
   assert.equal(o.subscriptions, 1);
   assert.equal(o.counts.active, 1);
   assert.equal(o.receivedZat, 5_000_000);
-  assert.equal(o.runRateZat, 5_000_000, "a 30-day plan's run rate equals its price");
+  assert.equal(o.expected30dZat, 5_000_000, "one more payment falls due within 30 days");
   assert.equal(o.upcoming[0]!.dueAt, T0 + 30 * DAY);
   assert.equal(o.daily.at(-1)!.zat, 5_000_000);
   assert.equal(o.payments[0]!.txid, "f".repeat(64));
   const later = m.overview(T0 + 34 * DAY);
   assert.equal(later.counts.lapsed, 1);
   assert.equal(later.attention.length, 1);
+});
+
+test("the 30-day projection never exceeds what mandates still allow", async () => {
+  const dir = mkdtempSync(join(tmpdir(), "cadence-p-"));
+  let n = 0;
+  const m = new Merchant({
+    network: "test",
+    keys,
+    plans: [{ id: "fast", name: "Fast", amountZat: 1_000_000, periodSec: 120, maxCycles: 5, graceSec: 60 }],
+    storePath: join(dir, "m.json"),
+    newAddress: async () => `utest1proj${++n}`.padEnd(48, "x"),
+  });
+  const offer = m.offer("fast");
+  const mandate = createMandate({
+    network: "test",
+    payee: { mode: "merchant", merchantKey: offer.merchantKey },
+    planId: "fast",
+    amountZat: 1_000_000,
+    periodSec: 120,
+    maxCycles: 5,
+    startAt: T0,
+    expiresAt: T0 + 120 * 5 + 61,
+    graceSec: 60,
+    jitterSec: 0,
+  });
+  m.register(mandate, T0);
+  // A 2-minute plan would "run" at 21,600 payments a month; the mandate allows 5.
+  assert.equal(m.overview(T0).expected30dZat, 5_000_000);
 });

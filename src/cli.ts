@@ -113,7 +113,10 @@ function agentParts(configPath: string) {
       const base = meta.get(mandate.id)?.merchantUrl;
       if (!base) throw new Error("no merchant URL recorded for this mandate");
       const r = await fetch(`${base}/invoices/${mandate.id}/${cycle}`, { signal: AbortSignal.timeout(30_000) });
-      if (!r.ok) throw new Error(`merchant returned ${r.status}`);
+      if (!r.ok) {
+        const detail = ((await r.json().catch(() => ({}))) as { error?: string }).error;
+        throw new Error(`merchant returned ${r.status}${detail ? `: ${detail}` : ""}`);
+      }
       return (await r.json()) as Invoice;
     },
   });
