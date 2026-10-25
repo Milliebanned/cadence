@@ -51,6 +51,12 @@ interface MerchantConfig {
   /** a view-only wallet, created with `zcash-devtool wallet init-fvk` */
   wallet: WalletConfig;
   plans: Plan[];
+  /** shown on checkout pages */
+  name?: string;
+  /** public base URL of this merchant server (default http://127.0.0.1:<port>) */
+  publicUrl?: string;
+  /** where customers' Cadence apps listen (default http://127.0.0.1:8790) */
+  cadenceAppUrl?: string;
   webhookUrl?: string;
   syncEverySec?: number;
   /** Fetch full transactions to read memos. Off by default: payments match by address alone,
@@ -148,9 +154,9 @@ async function agentCmd(sub: string, args: string[]): Promise<void> {
     let label: string;
     let merchantUrl: string | undefined;
     if (values.offer) {
-      const { offer, base } = await fetchOffer(values.offer);
+      const { offer, base, ref } = await fetchOffer(values.offer);
       mandate = mandateFromOffer(offer, { cycles: values.cycles ? Number(values.cycles) : undefined, jitterSec, now: start });
-      await registerWithMerchant(base, mandate);
+      await registerWithMerchant(base, mandate, ref);
       label = offer.plan.name;
       merchantUrl = base;
     } else if (values.address && values.amount && values["every-days"] && values.cycles) {
@@ -342,9 +348,14 @@ async function merchantCmd(sub: string, args: string[]): Promise<void> {
   setInterval(() => void reconcile().catch((e) => console.error(`sync failed: ${(e as Error).message}`)), (cfg.syncEverySec ?? 60) * 1000);
   void reconcile().catch((e) => console.error(`sync failed: ${(e as Error).message}`));
 
-  merchantServer(merchant, { adminToken: secrets.adminToken }).listen(cfg.port, "127.0.0.1", () => {
+  merchantServer(merchant, {
+    adminToken: secrets.adminToken,
+    publicUrl: cfg.publicUrl,
+    appUrl: cfg.cadenceAppUrl,
+    merchantName: cfg.name,
+  }).listen(cfg.port, "127.0.0.1", () => {
     console.log(`Cadence merchant on http://127.0.0.1:${cfg.port}  (network ${cfg.network})`);
-    console.log(`Offers: ${cfg.plans.map((p) => `http://127.0.0.1:${cfg.port}/offer/${p.id}`).join("  ")}`);
+    console.log(`Checkout: ${cfg.plans.map((p) => `http://127.0.0.1:${cfg.port}/checkout/${p.id}`).join("  ")}`);
     console.log(`Dashboard needs: Authorization: Bearer <adminToken from ${secretsPath}>`);
   });
 }

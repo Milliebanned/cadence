@@ -25,6 +25,7 @@ interface Preview {
   mandate: Mandate;
   label: string;
   merchantUrl?: string;
+  ref?: string;
   createdAt: number;
 }
 
@@ -243,10 +244,10 @@ export function subscriberApp(opts: AppOptions): { server: Server; stop: () => v
         } catch (e) {
           throw new HttpError(422, (e as Error).message);
         }
-        const { offer, base } = fetched;
+        const { offer, base, ref } = fetched;
         if (offer.network !== opts.network) throw new HttpError(422, `this offer is for ${offer.network}, the app runs on ${opts.network}`);
         const mandate = mandateFromOffer(offer, { cycles, jitterSec: opts.jitterSec ?? 3600, now: now() });
-        return json(res, 200, stash({ mandate, label: offer.plan.name, merchantUrl: base }));
+        return json(res, 200, stash({ mandate, label: offer.plan.name, merchantUrl: base, ref }));
       }
 
       if (req.method === "POST" && url.pathname === "/api/preview/direct") {
@@ -282,7 +283,7 @@ export function subscriberApp(opts: AppOptions): { server: Server; stop: () => v
         previews.delete(String(body.previewId));
         if (p.merchantUrl) {
           try {
-            await registerWithMerchant(p.merchantUrl, p.mandate);
+            await registerWithMerchant(p.merchantUrl, p.mandate, p.ref);
           } catch (e) {
             throw new HttpError(502, (e as Error).message);
           }

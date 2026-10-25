@@ -29,7 +29,7 @@ export function zecToZat(s: string): number {
 }
 
 /** Fetches a merchant's offer. The merchant base URL is the offer URL without `/offer/<plan>`. */
-export async function fetchOffer(offerUrl: string): Promise<{ offer: Offer; base: string }> {
+export async function fetchOffer(offerUrl: string): Promise<{ offer: Offer; base: string; ref?: string }> {
   const url = new URL(offerUrl);
   if (url.protocol !== "https:" && url.protocol !== "http:") throw new Error("offer link must be http(s)");
   if (!/\/offer\/[^/]+$/.test(url.pathname)) throw new Error("not a Cadence offer link (expected …/offer/<plan>)");
@@ -37,7 +37,9 @@ export async function fetchOffer(offerUrl: string): Promise<{ offer: Offer; base
   if (!r.ok) throw new Error(`offer returned ${r.status}`);
   const offer = (await r.json()) as Offer;
   if (!offer?.plan?.id || !/^[0-9a-f]{64}$/.test(offer.merchantKey ?? "")) throw new Error("malformed offer");
-  return { offer, base: url.origin + url.pathname.replace(/\/offer\/[^/]+$/, "") };
+  const ref = url.searchParams.get("ref") ?? undefined;
+  if (ref !== undefined && !/^[0-9a-f]{32}$/.test(ref)) throw new Error("malformed checkout reference");
+  return { offer, base: url.origin + url.pathname.replace(/\/offer\/[^/]+$/, ""), ref };
 }
 
 export function mandateFromOffer(offer: Offer, opts: { cycles?: number; jitterSec: number; now: number }): Mandate {
@@ -81,8 +83,9 @@ export function directMandate(p: {
   });
 }
 
-export async function registerWithMerchant(base: string, mandate: Mandate): Promise<void> {
-  const r = await fetch(`${base}/subscriptions`, {
+/** `ref` ties the mandate to the merchant's checkout page so it can show the result; it carries nothing else. */
+export async function registerWithMerchant(base: string, mandate: Mandate, ref?: string): Promise<void> {
+  const r = await fetch(`${base}/subscriptions${ref ? `?ref=${ref}` : ""}`, {
     method: "POST",
     headers: { "content-type": "application/json" },
     body: JSON.stringify(mandate),

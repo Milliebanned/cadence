@@ -39,7 +39,13 @@ export interface MerchantEvent {
 interface StoreFile {
   subscriptions: Record<string, Subscription>;
   seenTxOutputs: string[];
+  /** checkout reference -> mandate id, so a checkout page can show the outcome */
+  refs?: Record<string, string>;
 }
+
+export type CheckoutState =
+  | { state: "waiting" }
+  | { state: "subscribed"; mandateId: string; cyclesPaid: number; maxCycles: number; status: SubscriptionStatus };
 
 /** Holds a signing key for invoices and a source of fresh receive addresses. It never
  *  holds a spending key: addresses come from a view-only wallet, payments are read from it. */
@@ -88,7 +94,7 @@ export class Merchant {
   }
 
   /** Accepts a subscriber's mandate only if it matches the plan exactly. */
-  register(mandate: Mandate, now: number): void {
+  register(mandate: Mandate, now: number, ref?: string): void {
     const plan = this.plans.get(mandate.planId);
     const problems: string[] = [];
     if (!plan) problems.push("unknown plan");
@@ -104,6 +110,10 @@ export class Merchant {
     if (this.data.subscriptions[mandate.id]) problems.push("already registered");
     if (problems.length) throw new Error(problems.join("; "));
     this.data.subscriptions[mandate.id] = { mandate, createdAt: now, cancelledAt: null, invoices: {} };
+    if (ref) {
+      this.data.refs ??= {};
+      if (!this.data.refs[ref]) this.data.refs[ref] = mandate.id;
+    }
     this.save();
     this.onEvent({ type: "subscription.created", at: now, mandateId: mandate.id });
   }
@@ -135,6 +145,13 @@ export class Merchant {
     this.save();
     this.onEvent({ type: "invoice.issued", at: now, mandateId, cycle });
     return inv;
+  }
+
+  checkoutState(ref: string, now: number): CheckoutState {
+    const id = this.data.refs?.[ref];
+    if (!id) return { state: "waiting" };
+    const st = this.status(id, now);
+    return { state: "subscribed", mandateId: id, cyclesPaid: st.cyclesPaid, maxCycles: this.data.subscriptions[id]!.mandate.maxCycles, status: st.status };
   }
 
   cancel(mandateId: string, now: number): void {
