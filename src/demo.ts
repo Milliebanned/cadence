@@ -27,10 +27,15 @@ const PORTS = { zebraRpc: 18232, zebraP2p: 18344, zaino: 8137, merchant: 8780, a
 const LWD = `127.0.0.1:${PORTS.zaino}`;
 // On a server behind a reverse proxy: the hub at https://<domain>, the merchant at
 // https://shop.<domain>, the subscriber app at https://app.<domain>. Unset: everything on localhost.
+// Hosts that publish each port on its own address (like Instabox) set the three URLs directly.
 const DOMAIN = process.env.CADENCE_PUBLIC_DOMAIN?.trim() || "";
-const PUBLIC = DOMAIN
-  ? { hub: `https://${DOMAIN}`, shop: `https://shop.${DOMAIN}`, app: `https://app.${DOMAIN}` }
-  : { hub: `http://127.0.0.1:${PORTS.hub}`, shop: `http://127.0.0.1:${PORTS.merchant}`, app: `http://127.0.0.1:${PORTS.app}` };
+const env = (k: string) => process.env[k]?.trim().replace(/\/$/, "") || "";
+const PUBLIC = {
+  hub: env("CADENCE_PUBLIC_HUB") || (DOMAIN ? `https://${DOMAIN}` : `http://127.0.0.1:${PORTS.hub}`),
+  shop: env("CADENCE_PUBLIC_SHOP") || (DOMAIN ? `https://shop.${DOMAIN}` : `http://127.0.0.1:${PORTS.merchant}`),
+  app: env("CADENCE_PUBLIC_APP") || (DOMAIN ? `https://app.${DOMAIN}` : `http://127.0.0.1:${PORTS.app}`),
+};
+const IS_PUBLIC = !PUBLIC.hub.startsWith("http://127.0.0.1");
 const RPC = `http://127.0.0.1:${PORTS.zebraRpc}`;
 // Transparent address of the public BIP-39 test phrase "abandon … art". It only receives the
 // first few bootstrap blocks, before any demo wallet exists. Nobody's funds are involved.
@@ -281,6 +286,23 @@ async function bootstrap(): Promise<void> {
   children.length = 0;
 }
 
+async function miningNeeded(): Promise<boolean> {
+  const mempool = await rpc<string[]>("getrawmempool").catch(() => []);
+  if (mempool.length > 0) return true;
+  const statePath = join(DATA, "agent", "agent-state.json");
+  if (!existsSync(statePath)) return false;
+  const now = Math.floor(Date.now() / 1000);
+  const { mandates } = JSON.parse(readFileSync(statePath, "utf8")) as {
+    mandates: Record<string, { mandate: { maxCycles: number; startAt: number; periodSec: number; expiresAt: number }; state: { revoked: boolean; cyclesPaid: number; pending: unknown; unconfirmed?: unknown } }>;
+  };
+  return Object.values(mandates).some(({ mandate: m, state: s }) => {
+    if (s.pending || s.unconfirmed) return true; // a payment is waiting for blocks
+    if (s.revoked || s.cyclesPaid >= m.maxCycles || now >= m.expiresAt) return false;
+    const nextDue = m.startAt + s.cyclesPaid * m.periodSec;
+    return nextDue - now < 180; // a renewal is due within three minutes
+  });
+}
+
 let shuttingDown = false;
 async function shutdown(): Promise<void> {
   if (shuttingDown) return;
@@ -311,7 +333,7 @@ async function main(): Promise<void> {
   writeFileSync(merchantCfgPath, JSON.stringify(merchantCfg, null, 2));
   const agentCfgPath = join(DATA, "agent", "agent.json");
   const agentCfg = JSON.parse(readFileSync(agentCfgPath, "utf8"));
-  if (DOMAIN) agentCfg.publicUrl = PUBLIC.app;
+  if (IS_PUBLIC) agentCfg.publicUrl = PUBLIC.app;
   else delete agentCfg.publicUrl;
   writeFileSync(agentCfgPath, JSON.stringify(agentCfg, null, 2));
 
@@ -333,8 +355,11 @@ async function main(): Promise<void> {
   });
   await waitFor("merchant and app", async () => (links.admin && links.app ? true : undefined), 60_000);
 
-  // A block every 15 seconds, so payments confirm while you watch.
-  setInterval(() => void rpc("generate", [1]).catch(() => {}), 15_000);
+  // Mine only while there is something to confirm or a payment is about to fall due, so an
+  // unused demo goes fully idle (hosts that pause idle machines can then pause it).
+  setInterval(() => void (async () => {
+    if (await miningNeeded()) await rpc("generate", [1]);
+  })().catch(() => {}), 15_000);
 
   const hub = createServer(async (req, res) => {
     const headers = {
@@ -343,7 +368,7 @@ async function main(): Promise<void> {
       "x-content-type-options": "nosniff",
       "content-security-policy": "default-src 'none'; style-src 'unsafe-inline'; script-src 'self'; connect-src 'self'; frame-ancestors 'none'",
     };
-    const okHosts = [`127.0.0.1:${PORTS.hub}`, `localhost:${PORTS.hub}`, ...(DOMAIN ? [DOMAIN] : [])];
+    const okHosts = [`127.0.0.1:${PORTS.hub}`, `localhost:${PORTS.hub}`, new URL(PUBLIC.hub).host];
     if (!okHosts.includes(String(req.headers.host))) {
       res.writeHead(421, headers);
       return res.end();

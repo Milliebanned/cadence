@@ -92,7 +92,7 @@ npm run demo                      # private Zcash chain + merchant + your Cadenc
 
 `npm run demo` creates a private regtest chain with the same network upgrades as mainnet today
 (through NU6.3 Ironwood, no NU7), mines test coins straight into the subscriber's **shielded**
-address, starts the merchant and the subscriber app, mines a block every 15 seconds, and serves a
+address, starts the merchant and the subscriber app, mines blocks whenever a payment needs confirming, and serves a
 page that links every part. The demo plans renew every few minutes so you can watch full cycles.
 
 Verify the privacy of every payment the demo made:

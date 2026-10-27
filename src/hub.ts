@@ -242,7 +242,7 @@ footer{max-width:1360px;margin:0 auto;padding:44px 34px 48px;display:flex;justif
 <section id="demo">
   <span class="label">Live demo · running on this machine</span>
   <h2>Try the whole loop <em>in two minutes.</em></h2>
-  <p class="intro">A real Zcash chain, real shielded proofs, real wallets. Demo plans renew every few minutes and a block is mined every 15 seconds, so you can watch whole cycles happen.</p>
+  <p class="intro">A real Zcash chain, real shielded proofs, real wallets. Demo plans renew every few minutes and blocks are mined whenever a payment needs confirming, so you can watch whole cycles happen.</p>
   <div class="tiles">
     <article class="tile"><div class="dots"></div><span class="n">01 · open first</span><h3>Your Cadence</h3><p>The subscriber's app. Review limits, approve, watch payments go out, revoke any time.</p>
       <div class="go"><a class="btn-o w" ${out(l.appUrl)}>Open Cadence ${ICONS.arrow}</a></div></article>
