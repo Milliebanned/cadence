@@ -45,6 +45,8 @@ interface AgentConfig {
   appPort?: number;
   /** public origin of the app when it sits behind a reverse proxy, e.g. "https://app.example.org" */
   publicUrl?: string;
+  /** other public origins that also reach the app (e.g. the host's own URL behind a custom domain) */
+  publicAliases?: string[];
 }
 
 interface MerchantConfig {
@@ -209,7 +211,7 @@ async function agentCmd(sub: string, args: string[]): Promise<void> {
       },
       tickEverySec: Number(values["every-sec"]),
       jitterSec: Number(values["jitter-min"]) * 60,
-      publicOrigins: cfg.publicUrl ? [new URL(cfg.publicUrl).origin] : [],
+      publicOrigins: [cfg.publicUrl, ...(cfg.publicAliases ?? [])].filter((u): u is string => Boolean(u)).map((u) => new URL(u).origin),
     });
     server.listen(port, "127.0.0.1", () => {
       console.log(`Cadence is running. Open this link (it carries this session's key, keep it private):`);

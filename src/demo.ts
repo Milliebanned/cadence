@@ -29,12 +29,15 @@ const LWD = `127.0.0.1:${PORTS.zaino}`;
 // https://shop.<domain>, the subscriber app at https://app.<domain>. Unset: everything on localhost.
 // Hosts that publish each port on its own address (like Instabox) set the three URLs directly.
 const DOMAIN = process.env.CADENCE_PUBLIC_DOMAIN?.trim() || "";
-const env = (k: string) => process.env[k]?.trim().replace(/\/$/, "") || "";
-const PUBLIC = {
-  hub: env("CADENCE_PUBLIC_HUB") || (DOMAIN ? `https://${DOMAIN}` : `http://127.0.0.1:${PORTS.hub}`),
-  shop: env("CADENCE_PUBLIC_SHOP") || (DOMAIN ? `https://shop.${DOMAIN}` : `http://127.0.0.1:${PORTS.merchant}`),
-  app: env("CADENCE_PUBLIC_APP") || (DOMAIN ? `https://app.${DOMAIN}` : `http://127.0.0.1:${PORTS.app}`),
+// Each may be a comma-separated list (e.g. a custom domain, then the host's own URL): the first is
+// used in links, and every one is accepted.
+const envList = (k: string) => (process.env[k] ?? "").split(",").map((s) => s.trim().replace(/\/$/, "")).filter(Boolean);
+const ALIASES = {
+  hub: envList("CADENCE_PUBLIC_HUB").length ? envList("CADENCE_PUBLIC_HUB") : [DOMAIN ? `https://${DOMAIN}` : `http://127.0.0.1:${PORTS.hub}`],
+  shop: envList("CADENCE_PUBLIC_SHOP").length ? envList("CADENCE_PUBLIC_SHOP") : [DOMAIN ? `https://shop.${DOMAIN}` : `http://127.0.0.1:${PORTS.merchant}`],
+  app: envList("CADENCE_PUBLIC_APP").length ? envList("CADENCE_PUBLIC_APP") : [DOMAIN ? `https://app.${DOMAIN}` : `http://127.0.0.1:${PORTS.app}`],
 };
+const PUBLIC = { hub: ALIASES.hub[0]!, shop: ALIASES.shop[0]!, app: ALIASES.app[0]! };
 const IS_PUBLIC = !PUBLIC.hub.startsWith("http://127.0.0.1");
 const RPC = `http://127.0.0.1:${PORTS.zebraRpc}`;
 // Transparent address of the public BIP-39 test phrase "abandon … art". It only receives the
@@ -333,8 +336,13 @@ async function main(): Promise<void> {
   writeFileSync(merchantCfgPath, JSON.stringify(merchantCfg, null, 2));
   const agentCfgPath = join(DATA, "agent", "agent.json");
   const agentCfg = JSON.parse(readFileSync(agentCfgPath, "utf8"));
-  if (IS_PUBLIC) agentCfg.publicUrl = PUBLIC.app;
-  else delete agentCfg.publicUrl;
+  if (IS_PUBLIC) {
+    agentCfg.publicUrl = PUBLIC.app;
+    agentCfg.publicAliases = ALIASES.app.slice(1);
+  } else {
+    delete agentCfg.publicUrl;
+    delete agentCfg.publicAliases;
+  }
   writeFileSync(agentCfgPath, JSON.stringify(agentCfg, null, 2));
 
   await startChain();
@@ -368,7 +376,7 @@ async function main(): Promise<void> {
       "x-content-type-options": "nosniff",
       "content-security-policy": "default-src 'none'; style-src 'unsafe-inline'; script-src 'self'; connect-src 'self'; frame-ancestors 'none'",
     };
-    const okHosts = [`127.0.0.1:${PORTS.hub}`, `localhost:${PORTS.hub}`, new URL(PUBLIC.hub).host];
+    const okHosts = [`127.0.0.1:${PORTS.hub}`, `localhost:${PORTS.hub}`, ...ALIASES.hub.map((u) => new URL(u).host)];
     if (!okHosts.includes(String(req.headers.host))) {
       res.writeHead(421, headers);
       return res.end();
