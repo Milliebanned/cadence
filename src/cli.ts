@@ -43,6 +43,8 @@ interface AgentConfig {
   dataDir: string;
   wallet: WalletConfig;
   appPort?: number;
+  /** public origin of the app when it sits behind a reverse proxy, e.g. "https://app.example.org" */
+  publicUrl?: string;
 }
 
 interface MerchantConfig {
@@ -207,10 +209,12 @@ async function agentCmd(sub: string, args: string[]): Promise<void> {
       },
       tickEverySec: Number(values["every-sec"]),
       jitterSec: Number(values["jitter-min"]) * 60,
+      publicOrigins: cfg.publicUrl ? [new URL(cfg.publicUrl).origin] : [],
     });
     server.listen(port, "127.0.0.1", () => {
       console.log(`Cadence is running. Open this link (it carries this session's key, keep it private):`);
       console.log(`  http://127.0.0.1:${port}/#t=${token}`);
+      if (cfg.publicUrl) console.log(`  public: ${new URL(cfg.publicUrl).origin}/#t=${token}`);
     });
     return;
   }
@@ -390,6 +394,7 @@ async function merchantCmd(sub: string, args: string[]): Promise<void> {
     console.log(`Cadence merchant on http://127.0.0.1:${cfg.port}  (network ${cfg.network})`);
     console.log(`Checkout: ${cfg.plans.map((p) => `http://127.0.0.1:${cfg.port}/checkout/${p.id}`).join("  ")}`);
     console.log(`Dashboard (keep this link private): http://127.0.0.1:${cfg.port}/admin#t=${secrets.adminToken}`);
+    if (cfg.publicUrl) console.log(`  public dashboard: ${new URL(cfg.publicUrl).origin}/admin#t=${secrets.adminToken}`);
   });
 }
 

@@ -25,6 +25,12 @@ const BIN = {
 };
 const PORTS = { zebraRpc: 18232, zebraP2p: 18344, zaino: 8137, merchant: 8780, app: 8790, hub: 8770 };
 const LWD = `127.0.0.1:${PORTS.zaino}`;
+// On a server behind a reverse proxy: the hub at https://<domain>, the merchant at
+// https://shop.<domain>, the subscriber app at https://app.<domain>. Unset: everything on localhost.
+const DOMAIN = process.env.CADENCE_PUBLIC_DOMAIN?.trim() || "";
+const PUBLIC = DOMAIN
+  ? { hub: `https://${DOMAIN}`, shop: `https://shop.${DOMAIN}`, app: `https://app.${DOMAIN}` }
+  : { hub: `http://127.0.0.1:${PORTS.hub}`, shop: `http://127.0.0.1:${PORTS.merchant}`, app: `http://127.0.0.1:${PORTS.app}` };
 const RPC = `http://127.0.0.1:${PORTS.zebraRpc}`;
 // Transparent address of the public BIP-39 test phrase "abandon … art". It only receives the
 // first few bootstrap blocks, before any demo wallet exists. Nobody's funds are involved.
@@ -297,6 +303,18 @@ async function main(): Promise<void> {
 
   if (!existsSync(join(DATA, "bootstrapped"))) await bootstrap();
 
+  // Point the merchant and the app at their public addresses (on every start, so a domain can be added later).
+  const merchantCfgPath = join(DATA, "merchant", "merchant.json");
+  const merchantCfg = JSON.parse(readFileSync(merchantCfgPath, "utf8"));
+  merchantCfg.publicUrl = PUBLIC.shop;
+  merchantCfg.cadenceAppUrl = PUBLIC.app;
+  writeFileSync(merchantCfgPath, JSON.stringify(merchantCfg, null, 2));
+  const agentCfgPath = join(DATA, "agent", "agent.json");
+  const agentCfg = JSON.parse(readFileSync(agentCfgPath, "utf8"));
+  if (DOMAIN) agentCfg.publicUrl = PUBLIC.app;
+  else delete agentCfg.publicUrl;
+  writeFileSync(agentCfgPath, JSON.stringify(agentCfg, null, 2));
+
   await startChain();
   const links: { admin?: string; app?: string } = {};
   start("merchant", process.execPath, [join(REPO, "src/cli.ts"), "merchant", "serve", "--config", join(DATA, "merchant", "merchant.json")], {
@@ -325,7 +343,8 @@ async function main(): Promise<void> {
       "x-content-type-options": "nosniff",
       "content-security-policy": "default-src 'none'; style-src 'unsafe-inline'; script-src 'self'; connect-src 'self'; frame-ancestors 'none'",
     };
-    if (req.headers.host !== `127.0.0.1:${PORTS.hub}` && req.headers.host !== `localhost:${PORTS.hub}`) {
+    const okHosts = [`127.0.0.1:${PORTS.hub}`, `localhost:${PORTS.hub}`, ...(DOMAIN ? [DOMAIN] : [])];
+    if (!okHosts.includes(String(req.headers.host))) {
       res.writeHead(421, headers);
       return res.end();
     }
@@ -344,18 +363,18 @@ async function main(): Promise<void> {
     res.writeHead(200, { ...headers, "content-type": "text/html; charset=utf-8" });
     res.end(
       hubHtml({
-        appUrl: links.app!,
-        adminUrl: links.admin!,
+        appUrl: links.app!.replace(`http://127.0.0.1:${PORTS.app}`, PUBLIC.app),
+        adminUrl: links.admin!.replace(`http://127.0.0.1:${PORTS.merchant}`, PUBLIC.shop),
         checkoutUrls: [
-          { name: "Private VPN", url: `http://127.0.0.1:${PORTS.merchant}/checkout/vpn` },
-          { name: "Research Newsletter", url: `http://127.0.0.1:${PORTS.merchant}/checkout/newsletter` },
+          { name: "Private VPN", url: `${PUBLIC.shop}/checkout/vpn` },
+          { name: "Research Newsletter", url: `${PUBLIC.shop}/checkout/newsletter` },
         ],
         proofCommand: `node src/cli.ts agent proof --config ${join(DATA, "agent", "agent.json")} --rpc ${RPC}`,
       }),
     );
   });
   hub.listen(PORTS.hub, "127.0.0.1", () => {
-    console.log(`\n  Cadence demo is running. Open:\n\n    \x1b[1mhttp://127.0.0.1:${PORTS.hub}\x1b[0m\n\n  Ctrl+C stops everything. Logs: ${DATA}\n`);
+    console.log(`\n  Cadence demo is running. Open:\n\n    \x1b[1m${PUBLIC.hub}\x1b[0m\n\n  Ctrl+C stops everything. Logs: ${DATA}\n`);
     if (process.argv.includes("--open")) execFile("open", [`http://127.0.0.1:${PORTS.hub}`], () => {});
   });
 }

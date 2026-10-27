@@ -41,6 +41,8 @@ export interface AppOptions {
   tickEverySec?: number;
   now?: () => number;
   jitterSec?: number;
+  /** extra origins the app is served from, e.g. "https://app.example.org" behind a reverse proxy */
+  publicOrigins?: string[];
 }
 
 class HttpError extends Error {
@@ -101,7 +103,8 @@ export function subscriberApp(opts: AppOptions): { server: Server; stop: () => v
   let balanceError: string | null = null;
   let ticking = false;
 
-  const allowedHosts = new Set([`127.0.0.1:${opts.port}`, `localhost:${opts.port}`]);
+  const allowedOrigins = new Set([`http://127.0.0.1:${opts.port}`, `http://localhost:${opts.port}`, ...(opts.publicOrigins ?? [])]);
+  const allowedHosts = new Set([...allowedOrigins].map((o) => new URL(o).host));
 
   const refreshBalance = async () => {
     if (!opts.balance) return;
@@ -218,7 +221,7 @@ export function subscriberApp(opts: AppOptions): { server: Server; stop: () => v
     try {
       if (!allowedHosts.has(String(req.headers.host ?? ""))) throw new HttpError(421, "wrong host");
       const origin = req.headers.origin;
-      if (origin && !allowedHosts.has(origin.replace(/^http:\/\//, ""))) throw new HttpError(403, "cross-origin request refused");
+      if (origin && !allowedOrigins.has(origin)) throw new HttpError(403, "cross-origin request refused");
       const url = new URL(req.url ?? "/", `http://${req.headers.host}`);
 
       if (req.method === "GET" && url.pathname === "/") return send(res, 200, APP_HTML, "text/html");

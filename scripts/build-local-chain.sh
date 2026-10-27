@@ -9,6 +9,7 @@ set -eu
 
 ZEBRA_TAG="v7.0.0"
 ZAINO_TAG="0.10.1"
+DEVTOOL_COMMIT="0b3436bb8d235c67cd36b800cb45a7b1b489c415"
 
 CARGO="${CARGO:-$HOME/.cargo/bin/cargo}"
 ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
@@ -23,6 +24,10 @@ fetch() { # repo tag dir
 
 fetch ZcashFoundation/zebra "$ZEBRA_TAG" zebra
 fetch zingolabs/zaino "$ZAINO_TAG" zaino
+if [ ! -d "$VENDOR/zcash-devtool" ]; then
+  git clone -q https://github.com/zcash/zcash-devtool "$VENDOR/zcash-devtool"
+  git -C "$VENDOR/zcash-devtool" checkout -q "$DEVTOOL_COMMIT"
+fi
 
 echo "== zebrad $ZEBRA_TAG (internal miner)"
 (cd "$VENDOR/zebra" && "$CARGO" build --release --locked --bin zebrad --features internal-miner)
