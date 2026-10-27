@@ -9,6 +9,10 @@ that can spend.
 
 Built for **ZECATHON 2026 · Shielded Payments**.
 
+**Live demo: [cadence.milliebanned.xyz](https://cadence.milliebanned.xyz)**. It runs on a private
+regtest chain with real shielded transactions. The demo machine pauses when idle, so the first
+visit can take a few seconds.
+
 ![Cadence landing page](docs/img/landing.png)
 
 ---
